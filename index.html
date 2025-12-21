@@ -11,85 +11,76 @@
   <!-- ===== SCREEN: MENU ===== -->
   <section class="screen" id="screen-menu" aria-label="Экран входа">
     <header class="topbar">
-      <button class="iconBtn" id="btn-menu-help" title="Помощь">?</button>
+      <button class="iconBtn" id="menuHelp" title="Помощь">?</button>
       <div class="topTitle">Морской Бой — онлайн игра</div>
-      <button class="iconBtn" id="btn-menu-more" title="Меню">⋯</button>
+      <button class="iconBtn" id="menuMore" title="Меню">⋯</button>
     </header>
 
     <div class="paper">
-      <div class="menuHero">
-        <div class="heroArt left"></div>
+      <div class="menuLayout">
+        <div class="menuArt left"></div>
 
-        <div class="menuButtons">
-          <button class="sketchBtn big" id="btn-online">
-            <span>Онлайн игра</span>
-            <small class="badge" id="badge-online">12</small>
+        <div class="menuCenter">
+          <button class="sketchBtn big" id="goOnline">
+            Онлайн игра <span class="badge" id="badgeOnline">12</span>
           </button>
+          <button class="sketchBtn big" id="goSettings">Настройки</button>
+          <button class="sketchBtn big" id="goShare">Поделиться</button>
+          <button class="sketchBtn big" id="goSupport">Поддержка</button>
 
-          <button class="sketchBtn big" id="btn-settings">
-            <span>Настройки</span>
-          </button>
-
-          <button class="sketchBtn big" id="btn-share">
-            <span>Поделиться</span>
-          </button>
-
-          <button class="sketchBtn big" id="btn-support">
-            <span>Поддержка</span>
-          </button>
+          <div class="versionNote">v0.3 • UI-макет (псевдо-онлайн)</div>
         </div>
 
-        <div class="heroArt right"></div>
+        <div class="menuArt right"></div>
       </div>
-
-      <div class="footNote">v0.2 • UI-макет (псевдо-онлайн)</div>
     </div>
   </section>
 
   <!-- ===== SCREEN: PLACEMENT ===== -->
-  <section class="screen hidden" id="screen-placement" aria-label="Расстановка кораблей">
+  <section class="screen hidden" id="screen-placement" aria-label="Расстановка">
     <header class="topbar">
-      <button class="iconBtn" id="btn-home-from-placement" title="Домой">⌂</button>
+      <button class="iconBtn" id="plHome" title="Домой">⌂</button>
       <div class="topTitle">Расстановка</div>
-      <button class="iconBtn" id="btn-share-from-placement" title="Поделиться">⤴</button>
+      <button class="iconBtn" id="plShare" title="Поделиться">⤴</button>
     </header>
 
     <div class="paper">
       <div class="placementLayout">
-        <!-- Left: Board -->
+
         <div class="panel sketchCard">
           <div class="panelHeader">
             <div class="panelTitle">Твоё поле</div>
-            <div class="panelSub" id="place-status">Тапни корабль справа → тапни по клетке</div>
+            <div class="panelSub" id="plHint">Тапни корабль справа → тапни по клетке</div>
           </div>
 
-          <!-- NEW: one grid 11x11 (axes + board) -->
           <div class="gridFrame">
-            <div class="grid11" id="player-grid11"></div>
+            <div class="grid11" id="grid11"></div>
           </div>
 
-          <div class="placeControls">
-            <button class="sketchBtn" id="btn-rotate">Повернуть</button>
-            <button class="sketchBtn ghost" id="btn-auto">Авто</button>
-            <button class="sketchBtn" id="btn-start" disabled>Дальше</button>
-            <button class="sketchBtn danger" id="btn-reset-placement">Сброс</button>
+          <div class="placeBottom">
+            <div class="placeBtns">
+              <button class="sketchBtn" id="btnRotate">Повернуть</button>
+              <button class="sketchBtn ghost" id="btnAuto">Авто</button>
+              <button class="sketchBtn" id="btnNext" disabled>Дальше</button>
+              <button class="sketchBtn danger" id="btnReset">Сброс</button>
+            </div>
+            <div class="miniLegend">
+              <span><i class="dot ok"></i> корабль</span>
+              <span><i class="dot bad"></i> нельзя рядом</span>
+            </div>
           </div>
         </div>
 
-        <!-- Right: Fleet -->
-        <div class="panel sketchCard">
+        <div class="panel sketchCard fleetPanel">
           <div class="panelHeader">
             <div class="panelTitle">Флот</div>
-            <div class="panelSub" id="fleet-hint">Выбери корабль → поставь</div>
+            <div class="panelSub" id="fleetInfo">выбери корабль</div>
           </div>
 
-          <div class="fleet" id="fleet"></div>
-
-          <div class="legend">
-            <div><span class="dot ok"></span> корабль</div>
-            <div><span class="dot bad"></span> нельзя рядом</div>
-          </div>
+          <div class="fleetGrid" id="fleetGrid"></div>
+          <div class="fleetFooter">Ориентация: <b id="oriLabel">гориз.</b></div>
         </div>
+
       </div>
     </div>
   </section>
@@ -97,9 +88,9 @@
   <!-- ===== SCREEN: LOBBY ===== -->
   <section class="screen hidden" id="screen-lobby" aria-label="Игровой зал">
     <header class="topbar">
-      <button class="iconBtn" id="btn-home-from-lobby" title="Домой">⌂</button>
+      <button class="iconBtn" id="lbHome" title="Домой">⌂</button>
       <div class="topTitle">Игровой зал</div>
-      <button class="iconBtn" id="btn-open-chat" title="Чат">💬</button>
+      <button class="iconBtn" id="lbChat" title="Чат">💬</button>
     </header>
 
     <div class="paper">
@@ -107,13 +98,13 @@
         <div class="panel sketchCard">
           <div class="panelHeader">
             <div class="panelTitle">Онлайн игроки</div>
-            <div class="panelSub">онлайн: <span id="online-percent">96%</span></div>
+            <div class="panelSub">онлайн: <span id="onlinePct">96%</span></div>
           </div>
 
-          <div class="playersGrid" id="players"></div>
+          <div class="playersGrid" id="playersGrid"></div>
 
           <div class="hintSmall">
-            Тапни игрока → старт 1×1 (локальный макет)
+            Тапни игрока → старт 1×1 (макет)
           </div>
         </div>
 
@@ -129,78 +120,82 @@
             <div class="roomLine"><b>Чат:</b> кнопка 💬 сверху</div>
           </div>
 
-          <button class="sketchBtn" id="btn-back-to-placement">Изменить расстановку</button>
+          <button class="sketchBtn" id="lbBackPlacement">Изменить расстановку</button>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ===== SCREEN: BATTLE 1x1 ===== -->
-  <section class="screen hidden" id="screen-battle" aria-label="Игра 1 на 1">
+  <!-- ===== SCREEN: BATTLE ===== -->
+  <section class="screen hidden" id="screen-battle" aria-label="Бой 1х1">
     <header class="topbar">
-      <button class="iconBtn" id="btn-back-to-lobby" title="Назад">←</button>
-      <div class="topTitle">Бой с <span id="battle-opponent">user1</span></div>
-      <button class="iconBtn" id="btn-battle-chat" title="Чат">💬</button>
+      <button class="iconBtn" id="btBack" title="Назад">←</button>
+      <div class="topTitle">Бой с <span id="oppName">user1</span></div>
+      <button class="iconBtn" id="btChat" title="Чат">💬</button>
     </header>
 
     <div class="paper">
       <div class="battleLayout">
+
         <div class="panel sketchCard">
           <div class="panelHeader">
             <div class="panelTitle">Твоё поле</div>
-            <div class="panelSub" id="battle-status-left">защищайся</div>
+            <div class="panelSub" id="myStatus">защищайся</div>
           </div>
-          <div class="boardWrap compact">
-            <div class="board" id="battle-my"></div>
+
+          <div class="boardFrame">
+            <div class="board" id="myBoard"></div>
           </div>
         </div>
 
         <div class="panel sketchCard">
           <div class="panelHeader">
             <div class="panelTitle">Поле противника</div>
-            <div class="panelSub" id="battle-status-right">твой ход</div>
-          </div>
-          <div class="boardWrap compact">
-            <div class="board" id="battle-enemy"></div>
+            <div class="panelSub" id="enStatus">твой ход</div>
           </div>
 
-          <div class="battleControls">
-            <button class="sketchBtn danger" id="btn-battle-exit">Выйти</button>
-            <button class="sketchBtn" id="btn-battle-restart">Новая игра</button>
+          <div class="boardFrame">
+            <div class="board" id="enBoard"></div>
+          </div>
+
+          <div class="battleBtns">
+            <button class="sketchBtn danger" id="btExit">Выйти</button>
+            <button class="sketchBtn" id="btRestart">Новая игра</button>
           </div>
         </div>
+
       </div>
     </div>
   </section>
 
-  <!-- ===== Chat Drawer ===== -->
+  <!-- ===== CHAT DRAWER ===== -->
   <div class="drawer hidden" id="chatDrawer" aria-label="Чат">
     <div class="drawerCard sketchCard">
       <div class="drawerHead">
         <div class="drawerTitle">Чат (общая комната)</div>
-        <button class="iconBtn" id="btn-close-chat" title="Закрыть">✕</button>
+        <button class="iconBtn" id="chatClose" title="Закрыть">✕</button>
       </div>
 
       <div class="chatBox" id="chatBox"></div>
 
       <div class="chatInputRow">
-        <button class="iconBtn small" id="btn-emoji" title="Эмодзи">🙂</button>
+        <button class="iconBtn small" id="emojiBtn" title="Эмодзи">🙂</button>
         <input class="chatInput" id="chatInput" placeholder="Сообщение" />
-        <button class="sketchBtn" id="btn-send">Отправить</button>
+        <button class="sketchBtn" id="sendBtn">Отправить</button>
       </div>
     </div>
   </div>
 
-  <!-- ===== Simple Modal ===== -->
+  <!-- ===== MODAL ===== -->
   <div class="modal hidden" id="modal">
     <div class="modalCard sketchCard">
       <div class="modalHead">
-        <div class="modalTitle" id="modalTitle">Окно</div>
-        <button class="iconBtn" id="modalClose" title="Закрыть">✕</button>
+        <div class="modalTitle" id="mTitle">Окно</div>
+        <button class="iconBtn" id="mClose" title="Закрыть">✕</button>
       </div>
-      <div class="modalBody" id="modalBody"></div>
+      <div class="modalBody" id="mBody"></div>
       <div class="modalFoot">
-        <button class="sketchBtn" id="modalOk">Ок</button>
+        <button class="sketchBtn" id="mOk">Ок</button>
       </div>
     </div>
   </div>
