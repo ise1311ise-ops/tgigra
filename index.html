@@ -2,59 +2,58 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
   <title>Морской бой</title>
-  <link rel="stylesheet" href="./style.css?v=1" />
-</head>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css?v=7">
+</head>
 <body>
   <div class="wrap">
-    <header class="topbar">
+    <div class="topbar">
       <div class="title">
         <div class="h1">Морской бой</div>
-        <div class="sub" id="statusText">Режим: <b>Расстановка</b> — ставь корабли на своём поле</div>
+        <div class="sub" id="subLine">Расстановка: тапай по своему полю, чтобы ставить корабли.</div>
       </div>
 
       <div class="hud">
-        <div class="pill">Очки: <span id="score">0</span></div>
-        <div class="pill">Осталось поставить: <span id="leftToPlace">10</span></div>
+        <div class="pill">Режим: <span id="mode">Расстановка</span></div>
+        <div class="pill">Ход: <span id="turn">Игрок</span></div>
       </div>
 
       <div class="controls">
-        <button id="rotate" class="btn">Повернуть: <span id="rotText">Гориз.</span></button>
-        <button id="restart" class="btn btn2">Заново</button>
+        <button class="btn" id="rotateBtn">Повернуть: Гориз.</button>
+        <button class="btn btn2" id="restartBtn">Заново</button>
       </div>
-    </header>
+    </div>
 
-    <main class="boards">
-      <section class="boardCard">
+    <div class="boards">
+      <div class="boardCard">
         <div class="boardHead">
           <div class="boardTitle">Твоё поле</div>
-          <div class="boardHint" id="yourHint">Тапай по клеткам, чтобы поставить корабли</div>
+          <div class="boardHint" id="hintMy">Ставь корабли сюда</div>
         </div>
-        <canvas id="you" width="360" height="360"></canvas>
-      </section>
+        <canvas id="my" width="420" height="420"></canvas>
+      </div>
 
-      <section class="boardCard">
+      <div class="boardCard">
         <div class="boardHead">
           <div class="boardTitle">Поле противника</div>
-          <div class="boardHint" id="enemyHint">Пока нельзя стрелять — сначала расставь корабли</div>
+          <div class="boardHint" id="hintEnemy">Пока нельзя стрелять</div>
         </div>
-        <canvas id="enemy" width="360" height="360"></canvas>
-      </section>
-    </main>
+        <canvas id="enemy" width="420" height="420"></canvas>
+      </div>
+    </div>
 
-    <footer class="footer">
-      <div class="shipsRow" id="shipPlan">
-        План: 4×1, 3×2, 2×3, 1×4 (10 кораблей)
-      </div>
-      <div class="tip" id="tip">
-        Расстановка: ставь корабли на своём поле. Кнопка «Повернуть» меняет ориентацию.
-        Корабли не могут касаться даже углами.
-      </div>
-    </footer>
+    <div class="footer paperCard">
+      <div class="shipsRow" id="shipsLeft"></div>
+      <div class="tip" id="tipLine"></div>
+    </div>
   </div>
 
-  <script defer src="./game.js?v=1"></script>
+  <script src="game.js?v=7"></script>
 </body>
 </html>
