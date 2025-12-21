@@ -4,38 +4,46 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
   <title>Морской бой</title>
-  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
-  <div class="topbar">
-    <div class="line1">
-      <div class="status" id="status">Режим: Расстановка</div>
-      <div class="score">Очки: <span id="score">0</span></div>
-    </div>
-
-    <div class="buttons">
-      <button id="rotateBtn">Повернуть: Гориз.</button>
-      <button id="restartBtn" class="secondary">Заново</button>
-    </div>
-  </div>
-
   <div class="wrap">
-    <div class="panel">
-      <div class="label">Твоё поле</div>
-      <canvas id="pBoard"></canvas>
-    </div>
+    <header class="top">
+      <div class="top__left">
+        <div class="stat">
+          <span class="label">Очки:</span>
+          <span id="score">0</span>
+        </div>
+        <div class="dot">•</div>
+        <div class="stat">
+          <span class="label">Режим:</span>
+          <span id="mode">Расстановка</span>
+        </div>
+      </div>
 
-    <div class="panel">
-      <div class="label">Поле противника (стреляй сюда)</div>
-      <canvas id="eBoard"></canvas>
-    </div>
+      <div class="top__right">
+        <button id="rotate" class="btn">Повернуть: <span id="rotLabel">Гориз.</span></button>
+        <button id="restart" class="btn btn--primary">Заново</button>
+      </div>
+    </header>
 
-    <div class="hint" id="hint">
-      Расстановка: тапай по своему полю, чтобы ставить корабли.
-      Кнопка «Повернуть» меняет ориентацию. Когда все корабли поставлены — начнётся бой.
-    </div>
+    <section class="panel">
+      <div class="panel__title">Твоё поле</div>
+      <canvas id="me" width="360" height="360"></canvas>
+    </section>
+
+    <section class="panel">
+      <div class="panel__title">Поле противника <span class="muted">(стреляй сюда)</span></div>
+      <canvas id="enemy" width="360" height="360"></canvas>
+    </section>
+
+    <footer class="hint" id="hint">
+      Расстановка: тапай по своему полю, чтобы поставить корабли. Кнопка «Повернуть» меняет ориентацию.
+      Когда все корабли поставлены — начнётся бой: стреляй по полю противника.
+    </footer>
   </div>
 
-  <script src="game.js?v=7"></script>
+  <script src="game.js"></script>
 </body>
 </html>
