@@ -66,7 +66,6 @@ btnCloseChat.onclick = closeChat;
 btnOpenChat.onclick = openChat;
 btnBattleChat.onclick = openChat;
 
-// close drawer on background click
 chatDrawer.addEventListener('click', (e) => {
   if(e.target === chatDrawer) closeChat();
 });
@@ -104,9 +103,7 @@ document.getElementById('btn-home-from-lobby').onclick = () => showScreen('menu'
 document.getElementById('btn-back-to-placement').onclick = () => showScreen('placement');
 
 // ================= Placement (manual + auto) =================
-const axisX = document.getElementById('axis-x');
-const axisY = document.getElementById('axis-y');
-const boardEl = document.getElementById('player-board');
+const grid11El = document.getElementById('player-grid11');
 const fleetEl = document.getElementById('fleet');
 const btnRotate = document.getElementById('btn-rotate');
 const btnAuto = document.getElementById('btn-auto');
@@ -128,48 +125,60 @@ function makeGrid(){
   return Array.from({length: SIZE}, () => Array.from({length: SIZE}, () => 0));
 }
 
-function buildAxes(){
-  axisX.innerHTML = '';
-  for(let i=1;i<=10;i++){
-    const d = document.createElement('div');
-    d.textContent = String(i);
-    axisX.appendChild(d);
-  }
-  axisY.innerHTML = '';
-  for(let i=0;i<10;i++){
-    const d = document.createElement('div');
-    d.textContent = letters[i];
-    axisY.appendChild(d);
-  }
-}
+/**
+ * Build one single 11x11 grid:
+ * (0,0) corner
+ * top row: numbers 1..10
+ * left col: letters
+ * rest: playable cells with dataset r/c
+ */
+function buildGrid11(){
+  grid11El.innerHTML = '';
+  for(let r=0;r<11;r++){
+    for(let c=0;c<11;c++){
+      if(r===0 && c===0){
+        const d = document.createElement('div');
+        d.className = 'axisCell cornerCell';
+        grid11El.appendChild(d);
+        continue;
+      }
+      if(r===0 && c>0){
+        const d = document.createElement('div');
+        d.className = 'axisCell';
+        d.textContent = String(c);
+        grid11El.appendChild(d);
+        continue;
+      }
+      if(c===0 && r>0){
+        const d = document.createElement('div');
+        d.className = 'axisCell';
+        d.textContent = letters[r-1];
+        grid11El.appendChild(d);
+        continue;
+      }
 
-function buildBoard(){
-  boardEl.innerHTML = '';
-  for(let r=0;r<SIZE;r++){
-    for(let c=0;c<SIZE;c++){
+      // playable cell
       const cell = document.createElement('div');
-      cell.className = 'cell';
-      cell.dataset.r = String(r);
-      cell.dataset.c = String(c);
-      cell.addEventListener('click', () => onPlaceClick(r,c));
-      boardEl.appendChild(cell);
+      cell.className = 'playCell';
+      cell.dataset.r = String(r-1);
+      cell.dataset.c = String(c-1);
+      cell.addEventListener('click', () => onPlaceClick(r-1, c-1));
+      grid11El.appendChild(cell);
     }
   }
 }
 
-function renderBoard(){
-  const cells = boardEl.querySelectorAll('.cell');
-  cells.forEach(cell => {
+function renderGrid11(){
+  const blocked = computeBlocked(playerGrid);
+  const blockedSet = new Set(blocked.map(x => `${x.r},${x.c}`));
+
+  grid11El.querySelectorAll('.playCell').forEach(cell => {
     const r = Number(cell.dataset.r);
     const c = Number(cell.dataset.c);
-    cell.classList.toggle('ship', playerGrid[r][c] === 1);
-    cell.classList.remove('blocked');
-  });
+    const hasShip = playerGrid[r][c] === 1;
 
-  const blocked = computeBlocked(playerGrid);
-  blocked.forEach(({r,c}) => {
-    const q = boardEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-    if(q && playerGrid[r][c] === 0) q.classList.add('blocked');
+    cell.classList.toggle('ship', hasShip);
+    cell.classList.toggle('blocked', !hasShip && blockedSet.has(`${r},${c}`));
   });
 }
 
@@ -238,6 +247,7 @@ function canPlaceShip(r,c,len,ori, grid){
     cells.push({r:rr,c:cc});
   }
 
+  // no touching
   for(const cell of cells){
     for(let dr=-1; dr<=1; dr++){
       for(let dc=-1; dc<=1; dc++){
@@ -280,7 +290,7 @@ function onPlaceClick(r,c){
   }
 
   placeShip(cells, ship);
-  renderBoard();
+  renderGrid11();
   renderFleet();
 
   if(allPlaced()){
@@ -308,7 +318,7 @@ function resetPlacement(){
   selectedShipIndex = 0;
   btnStart.disabled = true;
   placeStatus.textContent = 'Тапни корабль справа → тапни по клетке';
-  renderBoard();
+  renderGrid11();
   renderFleet();
 }
 
@@ -328,7 +338,7 @@ function autoPlaceAll(){
     if(!ok){ resetPlacement(); return autoPlaceAll(); }
   }
   btnStart.disabled = false;
-  renderBoard();
+  renderGrid11();
   renderFleet();
   placeStatus.textContent = 'Авто-расстановка готова! Нажми «Дальше».';
 }
@@ -372,9 +382,10 @@ function initLobbyOnce(){
     playersEl.appendChild(card);
   });
 
-  // init chat messages (common room)
   initChatOnce();
 }
+
+document.getElementById('btn-back-to-placement').onclick = () => showScreen('placement');
 
 // ================= Chat: common room =================
 const chatBox = document.getElementById('chatBox');
@@ -461,10 +472,10 @@ btnBattleRestart.onclick = () => {
 
 let currentOpponent = null;
 
-let myShipsGrid = null;        // 1 ship, 0 empty
-let myShotsGrid = null;        // hits on my field: 2 hit, 3 miss, 0 untouched
-let enemyShipsGrid = null;     // hidden ships
-let enemyShotsGrid = null;     // my shots on enemy: 2 hit, 3 miss
+let myShipsGrid = null;
+let myShotsGrid = null;
+let enemyShipsGrid = null;
+let enemyShotsGrid = null;
 
 let myTurn = true;
 
@@ -472,11 +483,9 @@ function startBattle(opponent){
   currentOpponent = opponent;
   battleOppEl.textContent = opponent;
 
-  // copy your placed grid as ships
   myShipsGrid = playerGrid.map(row => row.slice());
   myShotsGrid = makeGrid();
 
-  // generate enemy ships
   enemyShipsGrid = generateEnemyShips();
   enemyShotsGrid = makeGrid();
 
@@ -497,14 +506,12 @@ function buildBattleBoards(){
 
   for(let r=0;r<SIZE;r++){
     for(let c=0;c<SIZE;c++){
-      // my
       const a = document.createElement('div');
       a.className = 'cell';
       a.dataset.r = String(r);
       a.dataset.c = String(c);
       myBattleEl.appendChild(a);
 
-      // enemy
       const b = document.createElement('div');
       b.className = 'cell';
       b.dataset.r = String(r);
@@ -516,7 +523,6 @@ function buildBattleBoards(){
 }
 
 function renderBattleBoards(){
-  // my board: show ships + enemy shots
   myBattleEl.querySelectorAll('.cell').forEach(cell => {
     const r = Number(cell.dataset.r);
     const c = Number(cell.dataset.c);
@@ -525,7 +531,6 @@ function renderBattleBoards(){
     cell.classList.toggle('miss', myShotsGrid[r][c] === 3);
   });
 
-  // enemy board: do NOT show ships, only shots
   enemyBattleEl.querySelectorAll('.cell').forEach(cell => {
     const r = Number(cell.dataset.r);
     const c = Number(cell.dataset.c);
@@ -536,21 +541,18 @@ function renderBattleBoards(){
 
 function onShootEnemy(r,c){
   if(!myTurn) return;
-
-  // already shot
   if(enemyShotsGrid[r][c] === 2 || enemyShotsGrid[r][c] === 3) return;
 
   if(enemyShipsGrid[r][c] === 1){
-    enemyShotsGrid[r][c] = 2; // hit
+    enemyShotsGrid[r][c] = 2;
   }else{
-    enemyShotsGrid[r][c] = 3; // miss
+    enemyShotsGrid[r][c] = 3;
     myTurn = false;
     battleStatusR.textContent = 'ход противника...';
   }
 
   renderBattleBoards();
 
-  // win?
   if(isAllSunk(enemyShipsGrid, enemyShotsGrid)){
     openModal('Победа!', `Ты выиграл у <b>${escapeHtml(currentOpponent)}</b> ✅`);
     showScreen('lobby');
@@ -563,7 +565,6 @@ function onShootEnemy(r,c){
 }
 
 function enemyMove(){
-  // pick random untargeted cell
   const candidates = [];
   for(let r=0;r<SIZE;r++){
     for(let c=0;c<SIZE;c++){
@@ -576,9 +577,8 @@ function enemyMove(){
   const {r,c} = pick;
 
   if(myShipsGrid[r][c] === 1){
-    myShotsGrid[r][c] = 2; // hit
+    myShotsGrid[r][c] = 2;
     battleStatusR.textContent = 'противник попал!';
-    // enemy shoots again (simple)
     renderBattleBoards();
     if(isAllSunk(myShipsGrid, myShotsGrid)){
       openModal('Поражение', `Ты проиграл игроку <b>${escapeHtml(currentOpponent)}</b> ❌`);
@@ -588,7 +588,7 @@ function enemyMove(){
     setTimeout(enemyMove, 500);
     return;
   }else{
-    myShotsGrid[r][c] = 3; // miss
+    myShotsGrid[r][c] = 3;
     renderBattleBoards();
     myTurn = true;
     battleStatusR.textContent = 'твой ход';
@@ -617,7 +617,6 @@ function generateEnemyShips(){
       if(grid[rr][cc] === 1) return null;
       cells.push({r:rr,c:cc});
     }
-    // no touch
     for(const cell of cells){
       for(let dr=-1; dr<=1; dr++){
         for(let dc=-1; dc<=1; dc++){
@@ -659,12 +658,9 @@ function escapeHtml(s){
 
 // ================= Init =================
 (function init(){
-  buildAxes();
-  buildBoard();
-  renderBoard();
+  buildGrid11();
+  renderGrid11();
   renderFleet();
-
-  // Lobby/chat init only when needed
 
   const h = (location.hash || '#menu').replace('#','');
   if(screens[h]) showScreen(h, false);
