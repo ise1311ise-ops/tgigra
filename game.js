@@ -1,421 +1,501 @@
-/* ========= helpers ========= */
-const $ = (id) => document.getElementById(id);
+// ===== Router / Screen switching =====
+const screens = {
+  menu: document.getElementById('screen-menu'),
+  placement: document.getElementById('screen-placement'),
+  lobby: document.getElementById('screen-lobby'),
+};
 
-function showToast(text) {
-  const t = $("toast");
-  t.textContent = text;
-  t.classList.remove("hidden");
-  clearTimeout(showToast._tm);
-  showToast._tm = setTimeout(() => t.classList.add("hidden"), 1800);
+function showScreen(name, push = true){
+  Object.entries(screens).forEach(([k, el]) => {
+    if(k === name) el.classList.remove('hidden');
+    else el.classList.add('hidden');
+  });
+
+  // прокрутка текущего экрана вверх (как отдельная страница)
+  const active = screens[name].querySelector('.paper');
+  if(active) active.scrollTop = 0;
+
+  if(push){
+    location.hash = `#${name}`;
+  }
 }
 
-function openModal(title, html) {
-  $("modalTitle").textContent = title;
-  $("modalBody").innerHTML = html;
-  $("modal").classList.remove("hidden");
+window.addEventListener('hashchange', () => {
+  const h = (location.hash || '#menu').replace('#','');
+  if(screens[h]) showScreen(h, false);
+});
+
+// ===== Modal =====
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modalTitle');
+const modalBody = document.getElementById('modalBody');
+document.getElementById('modalClose').onclick = closeModal;
+document.getElementById('modalOk').onclick = closeModal;
+
+function openModal(title, html){
+  modalTitle.textContent = title;
+  modalBody.innerHTML = html;
+  modal.classList.remove('hidden');
 }
-function closeModal() {
-  $("modal").classList.add("hidden");
+function closeModal(){
+  modal.classList.add('hidden');
 }
 
-/* ========= screens ========= */
-const screenMenu = $("screenMenu");
-const screenPlacement = $("screenPlacement");
-const screenLobby = $("screenLobby");
-
-function goScreen(name) {
-  screenMenu.classList.toggle("hidden", name !== "menu");
-  screenPlacement.classList.toggle("hidden", name !== "placement");
-  screenLobby.classList.toggle("hidden", name !== "lobby");
+// ===== Share helper =====
+async function shareLink(){
+  const url = location.href.split('#')[0] + '#menu';
+  try{
+    if(navigator.share){
+      await navigator.share({ title: 'Морской Бой', text: 'Заходи играть!', url });
+    }else{
+      await navigator.clipboard.writeText(url);
+      openModal('Поделиться', `Ссылка скопирована:<br><b>${url}</b>`);
+    }
+  }catch(e){
+    // fallback
+    try{
+      await navigator.clipboard.writeText(url);
+      openModal('Поделиться', `Ссылка скопирована:<br><b>${url}</b>`);
+    }catch(_){
+      openModal('Поделиться', `Вот ссылка (скопируй вручную):<br><b>${url}</b>`);
+    }
+  }
 }
 
-/* ========= placement state ========= */
+// ===== Menu actions =====
+document.getElementById('btn-online').onclick = () => {
+  // переход на расстановку
+  showScreen('placement');
+};
+
+document.getElementById('btn-settings').onclick = () => {
+  openModal('Настройки', `
+    <div>• Звук: <b>вкл</b> (макет)</div>
+    <div>• Подсказки: <b>вкл</b> (макет)</div>
+    <div>• Тема: <b>тетрадь</b></div>
+    <br>
+    <div style="opacity:.8">Сделаем по-настоящему позже: сохранение в localStorage, переключатели и т.д.</div>
+  `);
+};
+
+document.getElementById('btn-share').onclick = shareLink;
+
+document.getElementById('btn-support').onclick = () => {
+  openModal('Поддержка', `
+    <b>Как играть:</b><br>
+    1) В «Онлайн игра» расставь корабли.<br>
+    2) Нажми «Старт» → попадёшь в игровой зал.<br>
+    3) Там выбирай комнату и общайся в чате.<br>
+    <br>
+    <div style="opacity:.85">Сейчас это UI-макет (без реального онлайна).</div>
+  `);
+};
+
+document.getElementById('btn-menu-help').onclick = () => {
+  openModal('Помощь', 'Нажми <b>Онлайн игра</b> → расставь корабли → <b>Старт</b> → зал.');
+};
+document.getElementById('btn-menu-more').onclick = () => {
+  openModal('Меню', 'Здесь потом сделаем «Статистика», «Достижения», «Магазин» как на скрине.');
+};
+
+// ===== Topbar buttons =====
+document.getElementById('btn-home-from-placement').onclick = () => showScreen('menu');
+document.getElementById('btn-share-from-placement').onclick = shareLink;
+
+document.getElementById('btn-home-from-lobby').onclick = () => showScreen('menu');
+document.getElementById('btn-close-lobby').onclick = () => showScreen('menu');
+
+// ===== Placement (manual + auto) =====
+const axisX = document.getElementById('axis-x');
+const axisY = document.getElementById('axis-y');
+const boardEl = document.getElementById('player-board');
+const fleetEl = document.getElementById('fleet');
+const btnRotate = document.getElementById('btn-rotate');
+const btnAuto = document.getElementById('btn-auto');
+const btnStart = document.getElementById('btn-start');
+const btnReset = document.getElementById('btn-reset-placement');
+const placeStatus = document.getElementById('place-status');
+
 const SIZE = 10;
-const LETTERS = ["А","Б","В","Г","Д","Е","Ж","З","И","К"];
-const SHIP_SET = [4,3,3,2,2,2,1,1,1,1];
+const letters = ['А','Б','В','Г','Д','Е','Ж','З','И','К'];
+const shipSet = [4,3,3,2,2,2,1,1,1,1]; // классика
 
-let orientation = "H"; // H / V
-let selectedTokenId = null;
-let board = []; // 10x10 {shipId|null}
-let placedShips = new Map(); // shipId -> {len, cells:[{r,c}]}
+let playerGrid = makeGrid();
+let orientation = 'h'; // h/v
+let selectedShipIndex = 0; // index in remaining list
+let shipsRemaining = shipSet.map((len, idx) => ({ id: idx, len, placed: false }));
+let placedShips = []; // {id,len,cells:[{r,c}]}
 
-function resetPlacement() {
-  orientation = "H";
-  selectedTokenId = null;
-  placedShips.clear();
-  board = Array.from({length: SIZE}, () => Array.from({length: SIZE}, () => null));
-
-  renderAxis();
-  buildGrid();
-  buildFleet();
-  updateRotateBtn();
-  updateStartBtn();
+function makeGrid(){
+  return Array.from({length: SIZE}, () => Array.from({length: SIZE}, () => 0));
+  // 0 empty, 1 ship
 }
 
-function renderAxis() {
-  const top = $("axisTop");
-  const left = $("axisLeft");
-  top.innerHTML = "";
-  left.innerHTML = "";
-  for (let i=1;i<=10;i++){
-    const d = document.createElement("div");
+function buildAxes(){
+  axisX.innerHTML = '';
+  for(let i=1;i<=10;i++){
+    const d = document.createElement('div');
     d.textContent = String(i);
-    top.appendChild(d);
+    axisX.appendChild(d);
   }
-  for (let i=0;i<10;i++){
-    const d = document.createElement("div");
-    d.textContent = LETTERS[i];
-    left.appendChild(d);
+  axisY.innerHTML = '';
+  for(let i=0;i<10;i++){
+    const d = document.createElement('div');
+    d.textContent = letters[i];
+    axisY.appendChild(d);
   }
 }
 
-function buildGrid() {
-  const grid = $("playerGrid");
-  grid.innerHTML = "";
-  for (let r=0;r<SIZE;r++){
-    for (let c=0;c<SIZE;c++){
-      const cell = document.createElement("div");
-      cell.className = "cell";
+function buildBoard(){
+  boardEl.innerHTML = '';
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      const cell = document.createElement('div');
+      cell.className = 'cell';
       cell.dataset.r = String(r);
       cell.dataset.c = String(c);
-      cell.addEventListener("click", onGridTap);
-      grid.appendChild(cell);
+      cell.addEventListener('click', () => onPlaceClick(r,c));
+      boardEl.appendChild(cell);
     }
   }
-  redrawBoard();
 }
 
-function buildFleet() {
-  const fleet = $("fleet");
-  fleet.innerHTML = "";
+function renderBoard(){
+  const cells = boardEl.querySelectorAll('.cell');
+  cells.forEach(cell => {
+    const r = Number(cell.dataset.r);
+    const c = Number(cell.dataset.c);
+    cell.classList.toggle('ship', playerGrid[r][c] === 1);
+    cell.classList.remove('blocked');
+  });
 
-  SHIP_SET.forEach((len, idx) => {
-    const shipId = `ship_${idx}_${len}`;
-    const token = document.createElement("div");
-    token.className = "shipToken";
-    token.dataset.shipId = shipId;
-    token.dataset.len = String(len);
-
-    const mini = document.createElement("div");
-    mini.className = "shipMini";
-    for (let i=0;i<len;i++){
-      const s = document.createElement("div");
-      s.className = "shipSeg";
-      mini.appendChild(s);
-    }
-
-    const label = document.createElement("div");
-    label.className = "shipLabel";
-    label.textContent = `${len}`;
-
-    token.appendChild(mini);
-    token.appendChild(label);
-
-    token.addEventListener("click", () => {
-      if (token.classList.contains("placed")) return;
-      document.querySelectorAll(".shipToken").forEach(x => x.classList.remove("active"));
-      token.classList.add("active");
-      selectedTokenId = shipId;
-      showToast(`Выбран корабль: ${len}`);
-    });
-
-    fleet.appendChild(token);
+  // подсветка запрета вокруг кораблей (чтобы было понятнее)
+  const blocked = computeBlocked(playerGrid);
+  blocked.forEach(({r,c}) => {
+    const q = boardEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+    if(q && playerGrid[r][c] === 0) q.classList.add('blocked');
   });
 }
 
-function updateRotateBtn() {
-  $("btnRotate").textContent = `Повернуть (${orientation === "H" ? "гориз." : "верт."})`;
-}
-function updateStartBtn() {
-  const allPlaced = placedShips.size === SHIP_SET.length;
-  $("btnStart").disabled = !allPlaced;
-}
-
-/* ===== placement rules (no touch) ===== */
-function inBounds(r,c){return r>=0 && r<SIZE && c>=0 && c<SIZE;}
-
-function canPlace(len, r, c, orient) {
-  const cells = [];
-  for (let i=0;i<len;i++){
-    const rr = orient==="H" ? r : r+i;
-    const cc = orient==="H" ? c+i : c;
-    if (!inBounds(rr,cc)) return {ok:false, cells:[]};
-    if (board[rr][cc] !== null) return {ok:false, cells:[]};
-    cells.push({r:rr,c:cc});
-  }
-
-  // check adjacency including diagonals
-  for (const p of cells){
-    for (let dr=-1; dr<=1; dr++){
-      for (let dc=-1; dc<=1; dc++){
-        const rr = p.r + dr;
-        const cc = p.c + dc;
-        if (!inBounds(rr,cc)) continue;
-        if (board[rr][cc] !== null) {
-          // allow if it's one of cells (shouldn't happen because empty check above)
-          return {ok:false, cells:[]};
+function computeBlocked(grid){
+  const out = [];
+  const seen = new Set();
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      if(grid[r][c] !== 1) continue;
+      for(let dr=-1; dr<=1; dr++){
+        for(let dc=-1; dc<=1; dc++){
+          const rr = r+dr, cc = c+dc;
+          if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) continue;
+          const key = rr+','+cc;
+          if(!seen.has(key)){
+            seen.add(key);
+            out.push({r:rr,c:cc});
+          }
         }
       }
     }
   }
-
-  return {ok:true, cells};
+  return out;
 }
 
-function onGridTap(e) {
-  const cell = e.currentTarget;
-  const r = Number(cell.dataset.r);
-  const c = Number(cell.dataset.c);
+function renderFleet(){
+  fleetEl.innerHTML = '';
+  shipsRemaining.forEach((s, idx) => {
+    const item = document.createElement('div');
+    item.className = 'shipPick' + (!s.placed && idx === selectedShipIndex ? ' active' : '');
+    item.style.opacity = s.placed ? '0.35' : '1';
 
-  if (!selectedTokenId) {
-    showToast("Сначала выбери корабль справа");
-    return;
-  }
+    const preview = document.createElement('div');
+    preview.className = 'shipPreview';
+    for(let i=0;i<s.len;i++){
+      const p = document.createElement('div');
+      p.className = 'pip';
+      preview.appendChild(p);
+    }
 
-  const token = document.querySelector(`.shipToken[data-ship-id="${selectedTokenId}"]`);
-  if (!token || token.classList.contains("placed")) return;
+    const meta = document.createElement('div');
+    meta.className = 'shipMeta';
+    meta.textContent = `${s.len}-палубный`;
 
-  const len = Number(token.dataset.len);
-  const res = canPlace(len, r, c, orientation);
-  if (!res.ok) {
-    flashInvalid(res.cells.length ? res.cells : [{r,c}]);
-    showToast("Нельзя поставить сюда");
-    return;
-  }
+    item.appendChild(preview);
+    item.appendChild(meta);
 
-  // place
-  for (const p of res.cells) board[p.r][p.c] = selectedTokenId;
-  placedShips.set(selectedTokenId, {len, cells: res.cells});
+    item.onclick = () => {
+      if(s.placed) return;
+      selectedShipIndex = idx;
+      renderFleet();
+      placeStatus.textContent = `Выбран корабль: ${s.len} • Ориентация: ${orientation === 'h' ? 'гориз.' : 'вертик.'}`;
+    };
 
-  token.classList.add("placed");
-  token.classList.remove("active");
-  selectedTokenId = null;
-
-  redrawBoard();
-  updateStartBtn();
-  showToast("Корабль поставлен");
+    fleetEl.appendChild(item);
+  });
 }
 
-function flashInvalid(cells) {
-  const grid = $("playerGrid");
-  for (const p of cells){
-    const idx = p.r*SIZE + p.c;
-    const el = grid.children[idx];
-    if (!el) continue;
-    el.classList.add("invalid");
-    setTimeout(() => el.classList.remove("invalid"), 260);
-  }
-}
-
-function redrawBoard() {
-  const grid = $("playerGrid");
-  // reset classes
-  for (let i=0;i<grid.children.length;i++){
-    const el = grid.children[i];
-    el.className = "cell";
+function canPlaceShip(r,c,len,ori, grid){
+  const cells = [];
+  for(let i=0;i<len;i++){
+    const rr = r + (ori === 'v' ? i : 0);
+    const cc = c + (ori === 'h' ? i : 0);
+    if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) return null;
+    if(grid[rr][cc] === 1) return null;
+    cells.push({r:rr,c:cc});
   }
 
-  // draw ships with rounded ends
-  for (const [shipId, ship] of placedShips.entries()){
-    const {len, cells} = ship;
-    const orient = (len === 1) ? "H" : (cells[0].r === cells[1]?.r ? "H" : "V");
-    cells.forEach((p, i) => {
-      const idx = p.r*SIZE + p.c;
-      const el = grid.children[idx];
-      el.classList.add("ship");
-      el.classList.add("shipDot");
-
-      if (len === 1) return;
-
-      if (orient === "H") {
-        if (i === 0) el.classList.add("shipStartH");
-        if (i === len-1) el.classList.add("shipEndH");
-      } else {
-        if (i === 0) el.classList.add("shipStartV");
-        if (i === len-1) el.classList.add("shipEndV");
+  // правило: корабли не касаются (включая диагональ)
+  for(const cell of cells){
+    for(let dr=-1; dr<=1; dr++){
+      for(let dc=-1; dc<=1; dc++){
+        const rr = cell.r+dr, cc = cell.c+dc;
+        if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) continue;
+        // если рядом стоит корабль, но это не часть текущего
+        const isPart = cells.some(x => x.r===rr && x.c===cc);
+        if(!isPart && grid[rr][cc] === 1) return null;
       }
-    });
+    }
+  }
+
+  return cells;
+}
+
+function placeShip(cells, ship){
+  cells.forEach(({r,c}) => playerGrid[r][c] = 1);
+  ship.placed = true;
+  placedShips.push({ id: ship.id, len: ship.len, cells });
+}
+
+function allPlaced(){
+  return shipsRemaining.every(s => s.placed);
+}
+
+function selectNextShip(){
+  const idx = shipsRemaining.findIndex(s => !s.placed);
+  if(idx >= 0) selectedShipIndex = idx;
+}
+
+function onPlaceClick(r,c){
+  const ship = shipsRemaining[selectedShipIndex];
+  if(!ship || ship.placed){
+    selectNextShip();
+  }
+  const ship2 = shipsRemaining[selectedShipIndex];
+  if(!ship2 || ship2.placed) return;
+
+  const cells = canPlaceShip(r,c, ship2.len, orientation, playerGrid);
+  if(!cells){
+    placeStatus.textContent = `Нельзя поставить сюда (${ship2.len})`;
+    return;
+  }
+
+  placeShip(cells, ship2);
+  renderBoard();
+  renderFleet();
+
+  if(allPlaced()){
+    placeStatus.textContent = 'Все корабли расставлены! Нажми «Старт».';
+    btnStart.disabled = false;
+  }else{
+    selectNextShip();
+    renderFleet();
+    placeStatus.textContent = `Поставь следующий корабль: ${shipsRemaining[selectedShipIndex].len}`;
   }
 }
 
-/* ========= lobby mock ========= */
-const roomData = [
-  {name:"Дезире", ping:"98%", plane:true},
-  {name:"крым1962россия", ping:"93%", plane:true},
-  {name:"Брюнетка", ping:"92%", plane:true},
-  {name:"*Васяня64*", ping:"98%", plane:false},
-  {name:"Даниил Семенюк", ping:"81%", plane:false},
-  {name:"Джейн Доу", ping:"98%", plane:false},
-  {name:"Малая07 Б/А", ping:"98%", plane:true},
-  {name:"Лекарь", ping:"94%", plane:false},
-  {name:"ИНТЕРСТЕЛЛАР Б/А", ping:"89%", plane:true},
+btnRotate.onclick = () => {
+  orientation = (orientation === 'h') ? 'v' : 'h';
+  placeStatus.textContent = `Ориентация: ${orientation === 'h' ? 'гориз.' : 'вертик.'}`;
+};
+
+btnReset.onclick = resetPlacement;
+
+function resetPlacement(){
+  playerGrid = makeGrid();
+  orientation = 'h';
+  shipsRemaining = shipSet.map((len, idx) => ({ id: idx, len, placed: false }));
+  placedShips = [];
+  selectedShipIndex = 0;
+  btnStart.disabled = true;
+  placeStatus.textContent = 'Тапни корабль справа → тапни по клетке';
+  renderBoard();
+  renderFleet();
+}
+
+btnAuto.onclick = () => {
+  autoPlaceAll();
+};
+
+function autoPlaceAll(){
+  resetPlacement();
+  // авто-расстановка с попытками
+  for(const ship of shipsRemaining){
+    let ok = false;
+    for(let t=0;t<500;t++){
+      const ori = Math.random() < 0.5 ? 'h' : 'v';
+      const r = Math.floor(Math.random()*SIZE);
+      const c = Math.floor(Math.random()*SIZE);
+      const cells = canPlaceShip(r,c, ship.len, ori, playerGrid);
+      if(cells){
+        placeShip(cells, ship);
+        ok = true;
+        break;
+      }
+    }
+    if(!ok){
+      // если не получилось — начнем заново (редко)
+      resetPlacement();
+      return autoPlaceAll();
+    }
+  }
+  btnStart.disabled = false;
+  renderBoard();
+  renderFleet();
+  placeStatus.textContent = 'Авто-расстановка готова! Нажми «Старт».';
+}
+
+btnStart.onclick = () => {
+  if(!allPlaced()){
+    placeStatus.textContent = 'Сначала расставь все корабли.';
+    return;
+  }
+  // Переход в зал после расстановки
+  initLobbyOnce();
+  showScreen('lobby');
+};
+
+// ===== Lobby (rooms + chat) =====
+const roomsEl = document.getElementById('rooms');
+const chatBox = document.getElementById('chatBox');
+const chatInput = document.getElementById('chatInput');
+const btnSend = document.getElementById('btn-send');
+const btnEmoji = document.getElementById('btn-emoji');
+const lobbyCount = document.getElementById('lobby-count');
+const onlinePercent = document.getElementById('online-percent');
+
+let lobbyInited = false;
+let activeRoomId = null;
+
+const fakeRooms = [
+  { id: 'r1', name: 'Дезире', ping: 98 },
+  { id: 'r2', name: 'крым1962россия', ping: 93 },
+  { id: 'r3', name: 'Брюнетка', ping: 92 },
+  { id: 'r4', name: '*Васяня64*', ping: 98 },
+  { id: 'r5', name: 'Даниил Семенюк', ping: 81 },
+  { id: 'r6', name: 'Джей Доу', ping: 98 },
+  { id: 'r7', name: 'Малая07 Б/А', ping: 98 },
+  { id: 'r8', name: 'Лекарь', ping: 94 },
+  { id: 'r9', name: 'ИНТЕРСТЕЛЛАР Б/А', ping: 89 },
 ];
 
-let chat = [
-  {nick:"penelope", avatar:"🏴‍☠️", text:"у меня новая тактика — принятие 😂😂😂"},
-  {nick:"ЕНОТИК*", avatar:"🦔", text:"СИНИЙ НОС, НИЧЕГО"},
-  {nick:"СИНИЙ НОС", avatar:"🎩", text:"свернуть? да ок!"},
-  {nick:"penelope", avatar:"🏴‍☠️", text:"0:1"},
+const fakeMsgs = [
+  { who: 'penelope', text: 'у меня новая тактика — принятие 😂😂😂' },
+  { who: 'ЕНОТИК*', text: 'СИНИЙ НОС, НИЧЕГО' },
+  { who: 'СИНИЙ НОС', text: 'свернуть? да ок!' },
+  { who: 'penelope', text: '0:1' },
 ];
 
-function buildLobby() {
-  $("onlineCount").textContent = "онлайн: 96%";
+function initLobbyOnce(){
+  if(lobbyInited) return;
+  lobbyInited = true;
 
-  const list = $("roomList");
-  list.innerHTML = "";
-  roomData.forEach((r) => {
-    const card = document.createElement("div");
-    card.className = "roomCard";
+  lobbyCount.textContent = '119';
+  onlinePercent.textContent = '96%';
+
+  // rooms
+  roomsEl.innerHTML = '';
+  fakeRooms.forEach(r => {
+    const card = document.createElement('div');
+    card.className = 'roomCard';
+    card.dataset.id = r.id;
     card.innerHTML = `
       <div class="roomName">${escapeHtml(r.name)}</div>
-      <div class="roomMeta">
-        <div>${escapeHtml(r.ping)}</div>
-        <div class="roomFlag" aria-hidden="true"></div>
-      </div>
-      ${r.plane ? `<div class="roomAir">✈</div>` : ``}
+      <div class="roomSub">${r.ping}% • ждёт соперника</div>
     `;
-    card.addEventListener("click", () => {
-      showToast(`Комната «${r.name}» (онлайн подключим позже)`);
-    });
-    list.appendChild(card);
+    card.onclick = () => selectRoom(r.id);
+    roomsEl.appendChild(card);
   });
 
-  renderChat();
-}
+  selectRoom(fakeRooms[0].id);
 
-function renderChat() {
-  const body = $("chatBody");
-  body.innerHTML = "";
-  chat.forEach((m) => {
-    const el = document.createElement("div");
-    el.className = "msg";
-    el.innerHTML = `
-      <div class="avatar">${escapeHtml(m.avatar)}</div>
-      <div class="msgBody">
-        <div class="msgTop">
-          <div class="nick">${escapeHtml(m.nick)}</div>
-          <div class="time">${nowTime()}</div>
-        </div>
-        <div class="text">${escapeHtml(m.text)}</div>
-      </div>
-    `;
-    body.appendChild(el);
+  // chat
+  chatBox.innerHTML = '';
+  fakeMsgs.forEach(m => addMsg(m.who, m.text));
+
+  btnSend.onclick = sendMsg;
+  chatInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') sendMsg();
   });
-  body.scrollTop = body.scrollHeight;
+
+  btnEmoji.onclick = () => {
+    chatInput.value += '🙂';
+    chatInput.focus();
+  };
 }
 
-function nowTime() {
-  const d = new Date();
-  const hh = String(d.getHours()).padStart(2,"0");
-  const mm = String(d.getMinutes()).padStart(2,"0");
-  return `${hh}:${mm}`;
+function selectRoom(id){
+  activeRoomId = id;
+  [...roomsEl.querySelectorAll('.roomCard')].forEach(c => {
+    c.classList.toggle('active', c.dataset.id === id);
+  });
+  addSys(`Вы выбрали комнату: ${roomName(id)} (макет)`);
+}
+
+function roomName(id){
+  const r = fakeRooms.find(x => x.id === id);
+  return r ? r.name : id;
+}
+
+function addSys(text){
+  const wrap = document.createElement('div');
+  wrap.className = 'msg';
+  wrap.innerHTML = `
+    <div class="avatar">i</div>
+    <div class="msgBody">
+      <div class="msgName">система</div>
+      <div class="msgText">${escapeHtml(text)}</div>
+    </div>
+  `;
+  chatBox.appendChild(wrap);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function addMsg(who, text){
+  const wrap = document.createElement('div');
+  wrap.className = 'msg';
+  wrap.innerHTML = `
+    <div class="avatar">${escapeHtml(who.slice(0,2).toUpperCase())}</div>
+    <div class="msgBody">
+      <div class="msgName">${escapeHtml(who)}</div>
+      <div class="msgText">${escapeHtml(text)}</div>
+    </div>
+  `;
+  chatBox.appendChild(wrap);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function sendMsg(){
+  const t = chatInput.value.trim();
+  if(!t) return;
+  addMsg('ты', t);
+  chatInput.value = '';
+  // фейковый ответ
+  setTimeout(() => addMsg('penelope', 'ок 🙂'), 450);
 }
 
 function escapeHtml(s){
-  return String(s)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+  return String(s).replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
 }
 
-/* ========= wiring ========= */
-window.addEventListener("load", () => {
-  // menu
-  $("btnOnline").addEventListener("click", () => {
-    resetPlacement();
-    goScreen("placement");
-    showToast("Расставь флот");
-  });
+// ===== Init =====
+(function init(){
+  buildAxes();
+  buildBoard();
+  renderBoard();
+  renderFleet();
 
-  $("btnSettings").addEventListener("click", () => {
-    openModal("Настройки", `
-      <div style="display:grid;gap:10px">
-        <label><input type="checkbox" checked> Звук</label>
-        <label><input type="checkbox" checked> Подсказки</label>
-        <label><input type="checkbox"> Тёмный режим (потом)</label>
-        <div style="opacity:.7;font-size:12px">Сами настройки применим позже — сейчас это экран.</div>
-      </div>
-    `);
-  });
-
-  $("btnShare").addEventListener("click", async () => {
-    const url = location.href;
-    try{
-      await navigator.clipboard.writeText(url);
-      showToast("Ссылка скопирована");
-    }catch{
-      openModal("Поделиться", `Скопируй ссылку вручную:<br><br><b>${escapeHtml(url)}</b>`);
-    }
-  });
-
-  $("btnSupport").addEventListener("click", () => {
-    openModal("Поддержка", `
-      <b>Как играть:</b><br>
-      1) Выбери корабль справа<br>
-      2) Поставь на поле (корабли не касаются даже по диагонали)<br>
-      3) Нажми «Старт» → попадёшь в игровой зал<br><br>
-      <span style="opacity:.75">Онлайн-часть подключим позже (сервер/WS).</span>
-    `);
-  });
-
-  // placement controls
-  $("btnPlacementBack").addEventListener("click", () => goScreen("menu"));
-  $("btnHome").addEventListener("click", () => goScreen("menu"));
-  $("btnHelp").addEventListener("click", () => $("btnSupport").click());
-  $("btnTrophy").addEventListener("click", () => openModal("Рейтинг", "Сделаем позже 🙂"));
-  $("btnShareMini").addEventListener("click", () => $("btnShare").click());
-
-  $("btnRotate").addEventListener("click", () => {
-    orientation = (orientation === "H") ? "V" : "H";
-    updateRotateBtn();
-    showToast(`Ориентация: ${orientation === "H" ? "горизонтально" : "вертикально"}`);
-  });
-
-  $("btnStart").addEventListener("click", () => {
-    if (placedShips.size !== SHIP_SET.length) {
-      showToast("Сначала расставь весь флот");
-      return;
-    }
-    buildLobby();
-    goScreen("lobby");
-    showToast("Добро пожаловать в игровой зал");
-  });
-
-  // lobby controls
-  $("btnLobbyHome").addEventListener("click", () => goScreen("menu"));
-  $("lobbyClose").addEventListener("click", () => goScreen("menu"));
-  $("roomsHelp").addEventListener("click", () => $("btnSupport").click());
-  $("roomsTrophy").addEventListener("click", () => openModal("Рейтинг", "Сделаем позже 🙂"));
-
-  $("chatClear").addEventListener("click", () => {
-    chat = [];
-    renderChat();
-    showToast("Чат очищен");
-  });
-
-  $("chatSend").addEventListener("click", sendChat);
-  $("chatText").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendChat();
-  });
-
-  // modal
-  $("modalClose").addEventListener("click", closeModal);
-  $("modalOk").addEventListener("click", closeModal);
-  $("modal").addEventListener("click", (e) => {
-    if (e.target === $("modal")) closeModal();
-  });
-
-  // initial
-  goScreen("menu");
-});
-
-function sendChat() {
-  const inp = $("chatText");
-  const text = inp.value.trim();
-  if (!text) return;
-  chat.push({nick:"Ты", avatar:"🙂", text});
-  inp.value = "";
-  renderChat();
-}
+  // открыть экран по hash, иначе меню
+  const h = (location.hash || '#menu').replace('#','');
+  if(screens[h]) showScreen(h, false);
+  else showScreen('menu', false);
+})();
