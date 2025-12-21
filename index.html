@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Моя игра</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="top">
+    <div>Очки: <span id="score">0</span></div>
+    <button id="restart">Заново</button>
+  </div>
+
+  <canvas id="game" width="360" height="540"></canvas>
+
+  <div class="hint">Тапай по экрану: ловим зелёные, избегаем красных.</div>
+
+  <script>
+    window.onerror = function (msg, src, line, col) {
+      document.body.innerHTML =
+        "<pre style='white-space:pre-wrap;padding:12px;color:#fff;background:#111'>" +
+        "JS ERROR: " + msg + "\n" + src + ":" + line + ":" + col +
+        "</pre>";
+    };
+  </script>
+
+  <script src="game.js"></script>
+</body>
+</html>
