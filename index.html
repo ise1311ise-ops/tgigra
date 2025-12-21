@@ -23,7 +23,7 @@
         <div class="menuButtons">
           <button class="sketchBtn big" id="btn-online">
             <span>Онлайн игра</span>
-            <small class="badge" id="badge-online">119</small>
+            <small class="badge" id="badge-online">12</small>
           </button>
 
           <button class="sketchBtn big" id="btn-settings">
@@ -42,9 +42,7 @@
         <div class="heroArt right"></div>
       </div>
 
-      <div class="footNote">
-        v0.2 • пока без реального онлайна (только макет UI)
-      </div>
+      <div class="footNote">v0.2 • UI-макет (псевдо-онлайн)</div>
     </div>
   </section>
 
@@ -52,7 +50,7 @@
   <section class="screen hidden" id="screen-placement" aria-label="Расстановка кораблей">
     <header class="topbar">
       <button class="iconBtn" id="btn-home-from-placement" title="Домой">⌂</button>
-      <div class="topTitle">Морской Бой — расстановка</div>
+      <div class="topTitle">Расстановка</div>
       <button class="iconBtn" id="btn-share-from-placement" title="Поделиться">⤴</button>
     </header>
 
@@ -74,7 +72,7 @@
           <div class="placeControls">
             <button class="sketchBtn" id="btn-rotate">Повернуть</button>
             <button class="sketchBtn ghost" id="btn-auto">Авто</button>
-            <button class="sketchBtn" id="btn-start" disabled>Старт</button>
+            <button class="sketchBtn" id="btn-start" disabled>Дальше</button>
             <button class="sketchBtn danger" id="btn-reset-placement">Сброс</button>
           </div>
         </div>
@@ -83,14 +81,13 @@
         <div class="panel sketchCard">
           <div class="panelHeader">
             <div class="panelTitle">Флот</div>
-            <div class="panelSub" id="fleet-hint">Выбери корабль → поставь на поле</div>
+            <div class="panelSub" id="fleet-hint">Выбери корабль → поставь</div>
           </div>
 
           <div class="fleet" id="fleet"></div>
 
           <div class="legend">
             <div><span class="dot ok"></span> корабль</div>
-            <div><span class="dot miss"></span> вода</div>
             <div><span class="dot bad"></span> нельзя рядом</div>
           </div>
         </div>
@@ -102,40 +99,100 @@
   <section class="screen hidden" id="screen-lobby" aria-label="Игровой зал">
     <header class="topbar">
       <button class="iconBtn" id="btn-home-from-lobby" title="Домой">⌂</button>
-      <div class="topTitle">Игровой зал (<span id="lobby-count">119</span>)</div>
-      <button class="iconBtn" id="btn-close-lobby" title="Закрыть">✕</button>
+      <div class="topTitle">Игровой зал</div>
+      <button class="iconBtn" id="btn-open-chat" title="Чат">💬</button>
     </header>
 
     <div class="paper">
       <div class="lobbyLayout">
-        <!-- Rooms -->
+        <!-- Players list -->
         <div class="panel sketchCard">
           <div class="panelHeader">
-            <div class="panelTitle">Комнаты</div>
+            <div class="panelTitle">Онлайн игроки</div>
             <div class="panelSub">онлайн: <span id="online-percent">96%</span></div>
           </div>
 
-          <div class="roomsGrid" id="rooms"></div>
+          <div class="playersGrid" id="players"></div>
+
+          <div class="hintSmall">
+            Тапни игрока → старт 1×1 (локальный макет)
+          </div>
         </div>
 
-        <!-- Chat -->
+        <!-- Right info (small) -->
         <div class="panel sketchCard">
           <div class="panelHeader">
-            <div class="panelTitle">Чат</div>
-            <div class="panelSub">общий</div>
+            <div class="panelTitle">Комната</div>
+            <div class="panelSub">общая</div>
           </div>
 
-          <div class="chatBox" id="chatBox"></div>
+          <div class="roomInfo">
+            <div class="roomLine"><b>Ты:</b> <span id="youNick">user0</span></div>
+            <div class="roomLine"><b>Готовность:</b> корабли расставлены ✅</div>
+            <div class="roomLine"><b>Чат:</b> кнопка 💬 сверху</div>
+          </div>
 
-          <div class="chatInputRow">
-            <button class="iconBtn small" id="btn-emoji" title="Эмодзи">🙂</button>
-            <input class="chatInput" id="chatInput" placeholder="Сообщение" />
-            <button class="sketchBtn" id="btn-send">Отправить</button>
+          <button class="sketchBtn" id="btn-back-to-placement">Изменить расстановку</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SCREEN: BATTLE 1x1 ===== -->
+  <section class="screen hidden" id="screen-battle" aria-label="Игра 1 на 1">
+    <header class="topbar">
+      <button class="iconBtn" id="btn-back-to-lobby" title="Назад">←</button>
+      <div class="topTitle">Бой с <span id="battle-opponent">user1</span></div>
+      <button class="iconBtn" id="btn-battle-chat" title="Чат">💬</button>
+    </header>
+
+    <div class="paper">
+      <div class="battleLayout">
+        <div class="panel sketchCard">
+          <div class="panelHeader">
+            <div class="panelTitle">Твоё поле</div>
+            <div class="panelSub" id="battle-status-left">защищайся</div>
+          </div>
+          <div class="boardWrap compact">
+            <div class="board" id="battle-my"></div>
+          </div>
+        </div>
+
+        <div class="panel sketchCard">
+          <div class="panelHeader">
+            <div class="panelTitle">Поле противника</div>
+            <div class="panelSub" id="battle-status-right">твой ход</div>
+          </div>
+          <div class="boardWrap compact">
+            <div class="board" id="battle-enemy"></div>
+          </div>
+
+          <div class="battleControls">
+            <button class="sketchBtn danger" id="btn-battle-exit">Выйти</button>
+            <button class="sketchBtn" id="btn-battle-restart">Новая игра</button>
           </div>
         </div>
       </div>
     </div>
   </section>
+
+  <!-- ===== Chat Drawer (opens from top button) ===== -->
+  <div class="drawer hidden" id="chatDrawer" aria-label="Чат">
+    <div class="drawerCard sketchCard">
+      <div class="drawerHead">
+        <div class="drawerTitle">Чат (общая комната)</div>
+        <button class="iconBtn" id="btn-close-chat" title="Закрыть">✕</button>
+      </div>
+
+      <div class="chatBox" id="chatBox"></div>
+
+      <div class="chatInputRow">
+        <button class="iconBtn small" id="btn-emoji" title="Эмодзи">🙂</button>
+        <input class="chatInput" id="chatInput" placeholder="Сообщение" />
+        <button class="sketchBtn" id="btn-send">Отправить</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ===== Simple Modal ===== -->
   <div class="modal hidden" id="modal">
