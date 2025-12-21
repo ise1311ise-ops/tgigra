@@ -3,57 +3,167 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-  <title>Морской бой</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="style.css?v=7">
+  <title>Морской Бой — онлайн игра</title>
+  <link rel="stylesheet" href="style.css?v=1">
 </head>
 <body>
-  <div class="wrap">
-    <div class="topbar">
-      <div class="title">
-        <div class="h1">Морской бой</div>
-        <div class="sub" id="subLine">Расстановка: тапай по своему полю, чтобы ставить корабли.</div>
-      </div>
 
-      <div class="hud">
-        <div class="pill">Режим: <span id="mode">Расстановка</span></div>
-        <div class="pill">Ход: <span id="turn">Игрок</span></div>
-      </div>
+  <!-- ====== SCREEN: MENU ====== -->
+  <section id="screenMenu" class="screen screenMenu">
+    <header class="topbar">
+      <div class="topbarLeft"></div>
+      <div class="topbarTitle">Морской Бой — онлайн игра</div>
+      <button class="topbarBtn" id="menuDots" title="Меню">⋯</button>
+    </header>
 
-      <div class="controls">
-        <button class="btn" id="rotateBtn">Повернуть: Гориз.</button>
-        <button class="btn btn2" id="restartBtn">Заново</button>
+    <div class="menuWrap">
+      <div class="menuCard">
+        <div class="menuTitle">Главное меню</div>
+        <div class="menuBtns">
+          <button class="bigBtn" id="btnOnline">
+            <span class="bigBtnIcon">🌐</span>
+            <span class="bigBtnText">
+              <span class="bigBtnTitle">Онлайн игра</span>
+              <span class="bigBtnHint">расстановка → зал → выбор игрока</span>
+            </span>
+            <span class="bigBtnArrow">›</span>
+          </button>
+
+          <button class="bigBtn" id="btnSettings">
+            <span class="bigBtnIcon">⚙️</span>
+            <span class="bigBtnText">
+              <span class="bigBtnTitle">Настройки</span>
+              <span class="bigBtnHint">звук / подсказки / тема</span>
+            </span>
+            <span class="bigBtnArrow">›</span>
+          </button>
+
+          <button class="bigBtn" id="btnShare">
+            <span class="bigBtnIcon">🔗</span>
+            <span class="bigBtnText">
+              <span class="bigBtnTitle">Поделиться</span>
+              <span class="bigBtnHint">скопировать ссылку на игру</span>
+            </span>
+            <span class="bigBtnArrow">›</span>
+          </button>
+
+          <button class="bigBtn" id="btnSupport">
+            <span class="bigBtnIcon">🛟</span>
+            <span class="bigBtnText">
+              <span class="bigBtnTitle">Поддержка</span>
+              <span class="bigBtnHint">как играть / помощь</span>
+            </span>
+            <span class="bigBtnArrow">›</span>
+          </button>
+        </div>
+        <div class="smallNote">v0.2 • пока без реального онлайна (только макет UI)</div>
       </div>
     </div>
+  </section>
 
-    <div class="boards">
-      <div class="boardCard">
-        <div class="boardHead">
-          <div class="boardTitle">Твоё поле</div>
-          <div class="boardHint" id="hintMy">Ставь корабли сюда</div>
-        </div>
-        <canvas id="my" width="420" height="420"></canvas>
-      </div>
+  <!-- ====== SCREEN: PLACEMENT ====== -->
+  <section id="screenPlacement" class="screen hidden">
+    <header class="topbar">
+      <button class="topbarBtn" id="btnPlacementBack" title="Назад">✕</button>
+      <div class="topbarTitle">Морской Бой — расстановка</div>
+      <button class="topbarBtn" id="placementDots" title="Меню">⋯</button>
+    </header>
 
-      <div class="boardCard">
-        <div class="boardHead">
-          <div class="boardTitle">Поле противника</div>
-          <div class="boardHint" id="hintEnemy">Пока нельзя стрелять</div>
+    <div class="paper">
+      <div class="placementLayout">
+        <!-- left: board -->
+        <div class="boardArea">
+          <div class="boardFrame">
+            <div class="axisTop" id="axisTop"></div>
+            <div class="axisLeft" id="axisLeft"></div>
+            <div class="grid" id="playerGrid" aria-label="Поле игрока"></div>
+          </div>
         </div>
-        <canvas id="enemy" width="420" height="420"></canvas>
+
+        <!-- right: ships palette -->
+        <aside class="palette">
+          <div class="paletteTop">
+            <button class="iconSquare" id="btnHome" title="Домой">⌂</button>
+            <button class="iconSquare" id="btnTrophy" title="Рейтинг">🏆</button>
+            <button class="iconSquare" id="btnHelp" title="Помощь">?</button>
+            <button class="iconSquare" id="btnShareMini" title="Поделиться">⤴</button>
+          </div>
+
+          <div class="fleetTitle">Флот</div>
+          <div class="fleet" id="fleet"></div>
+
+          <div class="placementBtns">
+            <button class="paperBtn" id="btnRotate">Повернуть</button>
+            <button class="paperBtn" id="btnAuto" disabled title="Сделаем позже">авто</button>
+            <button class="paperBtn primary" id="btnStart">Старт</button>
+          </div>
+
+          <div class="hint">
+            Тапни корабль справа → тапни по клетке на поле, чтобы поставить. Кнопка «Повернуть» меняет ориентацию.
+          </div>
+        </aside>
       </div>
     </div>
+  </section>
 
-    <div class="footer paperCard">
-      <div class="shipsRow" id="shipsLeft"></div>
-      <div class="tip" id="tipLine"></div>
+  <!-- ====== SCREEN: LOBBY ====== -->
+  <section id="screenLobby" class="screen hidden">
+    <header class="topbar">
+      <button class="topbarBtn" id="btnLobbyHome" title="Домой">⌂</button>
+      <div class="topbarTitle">Игровой зал (119)</div>
+      <button class="topbarBtn" id="lobbyClose" title="Выйти">✕</button>
+    </header>
+
+    <div class="paper">
+      <div class="lobbyLayout">
+        <div class="rooms">
+          <div class="roomsTop">
+            <button class="iconSquare" id="roomsTrophy" title="Рейтинг">🏆</button>
+            <button class="iconSquare" id="roomsHelp" title="Помощь">?</button>
+            <div class="roomsInfo">
+              <div class="roomsTitle">Комнаты</div>
+              <div class="roomsSub" id="onlineCount">онлайн: 96%</div>
+            </div>
+          </div>
+
+          <div class="roomList" id="roomList"></div>
+        </div>
+
+        <div class="chat">
+          <div class="chatHeader">
+            <div class="chatTitle">Чат</div>
+            <button class="iconSquare" id="chatClear" title="Очистить">🧹</button>
+          </div>
+
+          <div class="chatBody" id="chatBody"></div>
+
+          <div class="chatInput">
+            <button class="iconSquare" id="chatEmoji" title="Эмодзи">🙂</button>
+            <input id="chatText" type="text" placeholder="Сообщение" />
+            <button class="iconSquare" id="chatSend" title="Отправить">↵</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== MODAL ====== -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modalCard">
+      <div class="modalTop">
+        <div id="modalTitle" class="modalTitle">Заголовок</div>
+        <button id="modalClose" class="topbarBtn" aria-label="Закрыть">✕</button>
+      </div>
+      <div id="modalBody" class="modalBody"></div>
+      <div class="modalBottom">
+        <button id="modalOk" class="paperBtn primary">Ок</button>
+      </div>
     </div>
   </div>
 
-  <script src="game.js?v=7"></script>
+  <!-- ====== TOAST ====== -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="game.js?v=1"></script>
 </body>
 </html>
