@@ -3,165 +3,289 @@
   const ctx = canvas.getContext("2d");
 
   const scoreEl = document.getElementById("score");
+  const modeEl = document.getElementById("mode");
+  const hintEl = document.getElementById("hint");
+  const rotateBtn = document.getElementById("rotate");
+  const oriEl = document.getElementById("ori");
   const restartBtn = document.getElementById("restart");
 
-  // Подгоняем канвас под экран, но не меньше базового
-  function resize() {
-    const w = Math.min(window.innerWidth, 480);
-    const h = Math.min(window.innerHeight, 720);
+  // Поле 10x10
+  const N = 10;
+  const pad = 20;
+  const gridSize = 320; // квадрат поля
+  const cell = gridSize / N;
 
-    canvas.width = Math.max(320, w);
-    canvas.height = Math.max(480, h);
+  // Центрируем поле по горизонтали
+  const boardX = (canvas.width - gridSize) / 2;
+  const boardY = 60; // сверху место под подписи
 
-    // Чтобы UI сверху/снизу не мешал — можно чуть уменьшить высоту под подсказку
-    // но оставим как есть
-  }
-  window.addEventListener("resize", resize);
-  resize();
+  // Состояния
+  // 0 - пусто
+  // 1 - корабль
+  // 2 - промах
+  // 3 - попадание
+  let board, shipsLeftCells, score;
+  let placing = true;
+  let horizontal = true;
 
-  let score = 0;
-  let running = true;
+  // Набор кораблей: 4,3,3,2,2,2,1,1,1,1
+  const fleet = [4,3,3,2,2,2,1,1,1,1];
+  let placeIndex = 0; // какой корабль ставим сейчас
 
-  const balls = [];
-  const MAX_BALLS = 6;
-
-  function rand(min, max) {
-    return Math.random() * (max - min) + min;
-  }
-
-  function spawnBall() {
-    const r = rand(18, 32);
-    const x = rand(r, canvas.width - r);
-    const y = -r - rand(0, 200);
-
-    const isGood = Math.random() < 0.6; // зелёных чуть больше
-    const speed = rand(1.6, 3.6) + (score * 0.02);
-
-    balls.push({
-      x,
-      y,
-      r,
-      vy: speed,
-      isGood,
-    });
+  function newBoard() {
+    board = Array.from({ length: N }, () => Array(N).fill(0));
   }
 
   function reset() {
+    newBoard();
     score = 0;
-    running = true;
-    balls.length = 0;
-    for (let i = 0; i < 4; i++) spawnBall();
-    scoreEl.textContent = String(score);
+    shipsLeftCells = 0;
+    placing = true;
+    horizontal = true;
+    placeIndex = 0;
+    scoreEl.textContent = "0";
+    modeEl.textContent = "Расстановка";
+    oriEl.textContent = "Гориз.";
+    hintEl.textContent =
+      "Расстановка: тапай по сетке, чтобы поставить корабли. Потом начнётся атака: тапай по клеткам, чтобы стрелять.";
+    draw();
   }
 
-  restartBtn.addEventListener("click", reset);
+  // Проверка, можно ли поставить корабль (без касания по диагонали и вплотную тоже запрещаем)
+  function canPlace(r, c, len, horiz) {
+    const dr = horiz ? 0 : 1;
+    const dc = horiz ? 1 : 0;
 
-  function drawBall(b) {
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-    ctx.closePath();
+    const endR = r + dr * (len - 1);
+    const endC = c + dc * (len - 1);
+    if (endR < 0 || endR >= N || endC < 0 || endC >= N) return false;
 
-    // Цвета
-    ctx.fillStyle = b.isGood ? "#00ff66" : "#ff3344";
-    ctx.fill();
+    // Проверяем клетки корабля и окружение 1 клетка вокруг
+    for (let i = 0; i < len; i++) {
+      const rr = r + dr * i;
+      const cc = c + dc * i;
 
-    // Обводка для контраста
+      for (let ar = rr - 1; ar <= rr + 1; ar++) {
+        for (let ac = cc - 1; ac <= cc + 1; ac++) {
+          if (ar < 0 || ar >= N || ac < 0 || ac >= N) continue;
+          if (board[ar][ac] === 1) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function placeShip(r, c, len, horiz) {
+    const dr = horiz ? 0 : 1;
+    const dc = horiz ? 1 : 0;
+    for (let i = 0; i < len; i++) {
+      const rr = r + dr * i;
+      const cc = c + dc * i;
+      board[rr][cc] = 1;
+      shipsLeftCells++;
+    }
+  }
+
+  function startBattle() {
+    placing = false;
+    modeEl.textContent = "Атака";
+    hintEl.textContent =
+      "Атака: тапай по клеткам. Попадание = +1 очко. Цель — открыть все клетки кораблей!";
+  }
+
+  function finishBattle() {
+    modeEl.textContent = "Победа!";
+    hintEl.textContent = `Ты потопил весь флот! Очки: ${score}. Нажми "Заново", чтобы сыграть ещё.`;
+  }
+
+  function cellFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+
+    // Пересчёт координат, т.к. canvas растянут CSS-ом 1:1, но всё равно корректно:
+    const sx = canvas.width / rect.width;
+    const sy = canvas.height / rect.height;
+
+    const cx = x * sx;
+    const cy = y * sy;
+
+    const c = Math.floor((cx - boardX) / cell);
+    const r = Math.floor((cy - boardY) / cell);
+
+    if (r < 0 || r >= N || c < 0 || c >= N) return null;
+    return { r, c };
+  }
+
+  function onTap(e) {
+    e.preventDefault();
+    const pos = cellFromEvent(e);
+    if (!pos) return;
+
+    const { r, c } = pos;
+
+    if (placing) {
+      const len = fleet[placeIndex];
+      if (!canPlace(r, c, len, horizontal)) return;
+
+      placeShip(r, c, len, horizontal);
+      placeIndex++;
+
+      if (placeIndex >= fleet.length) {
+        startBattle();
+      }
+      draw();
+      return;
+    }
+
+    // Атака
+    const v = board[r][c];
+    if (v === 2 || v === 3) return; // уже стреляли
+
+    if (v === 1) {
+      board[r][c] = 3;
+      score++;
+      shipsLeftCells--;
+      scoreEl.textContent = String(score);
+      if (shipsLeftCells === 0) finishBattle();
+    } else if (v === 0) {
+      board[r][c] = 2;
+    }
+    draw();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Заголовок внутри canvas
+    ctx.fillStyle = "#e8eefc";
+    ctx.font = "bold 18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    ctx.fillText("Поле 10×10", pad, 30);
+
+    // Подсказка текущего корабля при расстановке
+    ctx.font = "14px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    ctx.fillStyle = "rgba(232,238,252,.85)";
+    if (placing) {
+      const len = fleet[placeIndex];
+      ctx.fillText(`Поставь корабль: ${len} клетк. (${placeIndex+1}/${fleet.length})`, pad, 50);
+    } else {
+      ctx.fillText("Стреляй по клеткам", pad, 50);
+    }
+
+    // Поле
+    // рамка
+    ctx.strokeStyle = "rgba(232,238,252,.25)";
     ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    roundRect(ctx, boardX, boardY, gridSize, gridSize, 12);
+    ctx.stroke();
+
+    // сетка
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(232,238,252,.12)";
+    for (let i = 1; i < N; i++) {
+      // вертикальные
+      ctx.beginPath();
+      ctx.moveTo(boardX + i * cell, boardY);
+      ctx.lineTo(boardX + i * cell, boardY + gridSize);
+      ctx.stroke();
+
+      // горизонтальные
+      ctx.beginPath();
+      ctx.moveTo(boardX, boardY + i * cell);
+      ctx.lineTo(boardX + gridSize, boardY + i * cell);
+      ctx.stroke();
+    }
+
+    // Рисуем состояния
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const x = boardX + c * cell;
+        const y = boardY + r * cell;
+        const v = board[r][c];
+
+        // В режиме расстановки показываем корабли
+        if (placing && v === 1) {
+          ctx.fillStyle = "rgba(80, 200, 120, .65)";
+          ctx.fillRect(x + 2, y + 2, cell - 4, cell - 4);
+        }
+
+        // В режиме атаки: корабли скрыты, но показываем попадания/промахи
+        if (!placing) {
+          if (v === 2) { // промах
+            ctx.fillStyle = "rgba(232,238,252,.45)";
+            dot(x, y);
+          } else if (v === 3) { // попадание
+            ctx.strokeStyle = "rgba(255, 90, 90, .95)";
+            ctx.lineWidth = 3;
+            cross(x, y);
+          }
+        }
+      }
+    }
+
+    // Превью корабля при расстановке (на нижней панели canvas)
+    if (placing) {
+      const len = fleet[placeIndex];
+      const px = pad;
+      const py = boardY + gridSize + 18;
+
+      ctx.fillStyle = "rgba(232,238,252,.85)";
+      ctx.font = "14px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx.fillText("Ориентация: " + (horizontal ? "Горизонтальная" : "Вертикальная"), px, py);
+
+      // мини-корабль
+      const mx = px;
+      const my = py + 10;
+      ctx.fillStyle = "rgba(80, 200, 120, .75)";
+      for (let i = 0; i < len; i++) {
+        const rx = mx + (horizontal ? i * 18 : 0);
+        const ry = my + (horizontal ? 0 : i * 18);
+        ctx.fillRect(rx, ry, 16, 16);
+      }
+    }
+  }
+
+  function dot(x, y) {
+    const cx = x + cell / 2;
+    const cy = y + cell / 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function cross(x, y) {
+    const p = 6;
+    ctx.beginPath();
+    ctx.moveTo(x + p, y + p);
+    ctx.lineTo(x + cell - p, y + cell - p);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + cell - p, y + p);
+    ctx.lineTo(x + p, y + cell - p);
     ctx.stroke();
   }
 
-  function drawGameOver() {
-    ctx.fillStyle = "rgba(0,0,0,0.55)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = "#fff";
-    ctx.textAlign = "center";
-    ctx.font = "bold 36px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
-
-    ctx.font = "24px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-    ctx.fillText(`Очки: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
-
-    ctx.font = "16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-    ctx.fillText("Нажми «Заново»", canvas.width / 2, canvas.height / 2 + 55);
+  function roundRect(ctx, x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
   }
 
-  function update() {
-    if (!running) return;
-
-    // Добавляем шарики если мало
-    while (balls.length < MAX_BALLS) spawnBall();
-
-    // Двигаем шарики
-    for (const b of balls) {
-      b.y += b.vy;
-    }
-
-    // Удаляем те, что улетели вниз, и спавним новые
-    for (let i = balls.length - 1; i >= 0; i--) {
-      if (balls[i].y - balls[i].r > canvas.height + 40) {
-        balls.splice(i, 1);
-        spawnBall();
-      }
-    }
-  }
-
-  function render() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (const b of balls) drawBall(b);
-
-    if (!running) drawGameOver();
-  }
-
-  function loop() {
-    update();
-    render();
-    requestAnimationFrame(loop);
-  }
-  loop();
-
-  function hitTest(x, y, b) {
-    const dx = x - b.x;
-    const dy = y - b.y;
-    return dx * dx + dy * dy <= b.r * b.r;
-  }
-
-  function onTap(clientX, clientY) {
-    if (!running) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-
-    // Проверяем шарики сверху вниз (чтоб клик по верхнему срабатывал)
-    for (let i = balls.length - 1; i >= 0; i--) {
-      const b = balls[i];
-      if (hitTest(x, y, b)) {
-        if (b.isGood) {
-          score += 1;
-          scoreEl.textContent = String(score);
-          balls.splice(i, 1);
-          spawnBall();
-        } else {
-          running = false; // красный = проигрыш
-        }
-        return;
-      }
-    }
-  }
-
-  // Touch / Mouse
-  canvas.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    const t = e.changedTouches[0];
-    if (t) onTap(t.clientX, t.clientY);
-  }, { passive: false });
-
-  canvas.addEventListener("mousedown", (e) => {
-    onTap(e.clientX, e.clientY);
+  rotateBtn.addEventListener("click", () => {
+    horizontal = !horizontal;
+    oriEl.textContent = horizontal ? "Гориз." : "Вертик.";
+    draw();
   });
+
+  restartBtn.addEventListener("click", reset);
+
+  canvas.addEventListener("click", onTap);
+  canvas.addEventListener("touchstart", onTap, { passive: false });
 
   reset();
 })();
