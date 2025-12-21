@@ -1,349 +1,605 @@
-(() => {
-  // ====== НАСТРОЙКИ ======
-  const N = 10;                 // поле 10x10
-  const CELL = 36;              // размер клетки в "логических" пикселях
-  const SIZE = N * CELL;
+// Морской бой: 2 поля, расстановка + бой, красивые корабли + анимации
 
-  // флот: 1x4, 2x3, 3x2, 4x1
-  const FLEET = [4,3,3,2,2,2,1,1,1,1];
+const GRID = 10;
+const SHIPS = [4,3,3,2,2,2,1,1,1,1];
 
-  // клетки состояния
-  // board[y][x] = 0 пусто, 1 корабль, 2 промах, 3 попадание
-  function makeBoard() {
-    return Array.from({length:N}, () => Array(N).fill(0));
+const meCanvas = document.getElementById("me");
+const enemyCanvas = document.getElementById("enemy");
+const meCtx = meCanvas.getContext("2d");
+const enCtx = enemyCanvas.getContext("2d");
+
+const scoreEl = document.getElementById("score");
+const modeEl  = document.getElementById("mode");
+const hintEl  = document.getElementById("hint");
+const rotBtn  = document.getElementById("rotate");
+const rotLabel= document.getElementById("rotLabel");
+const restartBtn = document.getElementById("restart");
+
+// ======= FX / Helpers =======
+const FX = { t0: performance.now(), particles: [] };
+function timeS(){ return (performance.now() - FX.t0)/1000; }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function lerp(a,b,t){ return a + (b-a)*t; }
+
+function roundRectPath(ctx, x, y, w, h, r){
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function shipHullPath(ctx, x, y, w, h, dir){
+  const r = Math.min(w,h)*0.36;
+  if (dir === 0){
+    roundRectPath(ctx, x, y, w, h, r);
+    ctx.moveTo(x+w, y+h*0.5);
+    ctx.lineTo(x+w + h*0.60, y+h*0.20);
+    ctx.lineTo(x+w + h*0.60, y+h*0.80);
+    ctx.closePath();
+  } else {
+    roundRectPath(ctx, x, y, w, h, r);
+    ctx.moveTo(x+w*0.5, y+h);
+    ctx.lineTo(x+w*0.20, y+h + w*0.60);
+    ctx.lineTo(x+w*0.80, y+h + w*0.60);
+    ctx.closePath();
+  }
+}
+
+function spawnMiss(x,y){
+  for (let i=0;i<18;i++){
+    const a = Math.random()*Math.PI*2;
+    const s = lerp(70, 240, Math.random());
+    FX.particles.push({x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s - 70, t:0, life:0.55, kind:"water"});
+  }
+}
+function spawnHit(x,y){
+  for (let i=0;i<28;i++){
+    const a = Math.random()*Math.PI*2;
+    const s = lerp(90, 360, Math.random());
+    FX.particles.push({x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, t:0, life:0.65, kind:(Math.random()<0.6?"spark":"smoke")});
+  }
+}
+function updateAndDrawParticles(ctx, dt){
+  for (let i=FX.particles.length-1;i>=0;i--){
+    const p = FX.particles[i];
+    p.t += dt;
+    const k = p.t / p.life;
+    if (k>=1){ FX.particles.splice(i,1); continue; }
+
+    p.vy += (p.kind==="water" ? 420 : 170) * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+
+    const a = 1-k;
+    ctx.save();
+    ctx.globalAlpha = a;
+
+    if (p.kind==="water"){
+      ctx.fillStyle = "rgba(170,230,255,0.85)";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, lerp(3.8, 1.2, k), 0, Math.PI*2);
+      ctx.fill();
+    } else if (p.kind==="spark"){
+      ctx.strokeStyle = "rgba(255,210,100,0.95)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx*0.02, p.y - p.vy*0.02);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = "rgba(255,90,120,0.35)";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, lerp(6, 16, k), 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+}
+
+// ======= Game State =======
+let orientation = 0; // 0 horiz, 1 vert
+let mode = "place"; // place | battle | end
+let score = 0;
+
+let meBoard, enBoard;
+let meShips, enShips;
+
+let placingIndex = 0;
+let aiTargets = []; // клетки для добивания
+let aiTried = new Set();
+
+function newBoard(){
+  // 0 пусто, 1 корабль, 2 промах, 3 попадание
+  const b = [];
+  for (let y=0;y<GRID;y++){
+    const row = [];
+    for (let x=0;x<GRID;x++) row.push(0);
+    b.push(row);
+  }
+  return b;
+}
+
+function shipCells(x,y,len,dir){
+  const cells = [];
+  for (let i=0;i<len;i++){
+    cells.push({x: x + (dir===0?i:0), y: y + (dir===1?i:0)});
+  }
+  return cells;
+}
+
+function inBounds(x,y){ return x>=0 && y>=0 && x<GRID && y<GRID; }
+
+function canPlace(board, x,y,len,dir){
+  const cells = shipCells(x,y,len,dir);
+  for (const c of cells){
+    if (!inBounds(c.x,c.y)) return false;
+
+    // нельзя ставить рядом даже по диагонали
+    for (let dy=-1; dy<=1; dy++){
+      for (let dx=-1; dx<=1; dx++){
+        const nx = c.x + dx, ny = c.y + dy;
+        if (inBounds(nx,ny) && board[ny][nx] === 1) return false;
+      }
+    }
+  }
+  return true;
+}
+
+function placeShip(board, ships, x,y,len,dir){
+  const cells = shipCells(x,y,len,dir);
+  for (const c of cells) board[c.y][c.x] = 1;
+
+  ships.push({
+    x,y,len,dir,
+    cells,
+    hits: new Set()
+  });
+}
+
+function allSunk(ships){
+  return ships.every(s => s.hits.size >= s.len);
+}
+
+function randomPlaceAll(board, ships){
+  for (const len of SHIPS){
+    let placed = false;
+    for (let tries=0; tries<5000 && !placed; tries++){
+      const dir = Math.random()<0.5 ? 0 : 1;
+      const x = Math.floor(Math.random()*GRID);
+      const y = Math.floor(Math.random()*GRID);
+      if (canPlace(board,x,y,len,dir)){
+        placeShip(board, ships, x,y,len,dir);
+        placed = true;
+      }
+    }
+    if (!placed) throw new Error("Не удалось расставить корабли");
+  }
+}
+
+function shipAt(ships, x,y){
+  for (const s of ships){
+    for (let i=0;i<s.cells.length;i++){
+      const c = s.cells[i];
+      if (c.x===x && c.y===y) return {ship:s, index:i};
+    }
+  }
+  return null;
+}
+
+// ======= Layout / sizes =======
+function fitCanvas(canvas){
+  // подгоняем внутренний размер под реальный CSS размер
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+  canvas.width  = Math.floor(rect.width * dpr);
+  canvas.height = Math.floor(rect.width * dpr); // квадрат
+}
+
+function cellSize(canvas){
+  return canvas.width / GRID;
+}
+
+// ======= Drawing =======
+function drawOcean(ctx, canvas){
+  const t = timeS();
+  const w = canvas.width, h = canvas.height;
+
+  // лёгкая "волна" как шум полосами
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  for (let i=0;i<18;i++){
+    const y = (i/18)*h;
+    const amp = 6 + i*0.15;
+    ctx.beginPath();
+    for (let x=0;x<=w;x+=20){
+      const yy = y + Math.sin(x*0.02 + t*1.8 + i)*amp;
+      if (x===0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);
+    }
+    ctx.strokeStyle = "rgba(120,200,255,0.20)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawGrid(ctx, canvas){
+  const cs = cellSize(canvas);
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.10)";
+  ctx.lineWidth = Math.max(1, cs*0.03);
+
+  for (let i=0;i<=GRID;i++){
+    const x = i*cs;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
+    const y = i*cs;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawMarkers(ctx, canvas, board){
+  const cs = cellSize(canvas);
+  for (let y=0;y<GRID;y++){
+    for (let x=0;x<GRID;x++){
+      const v = board[y][x];
+      const cx = (x+0.5)*cs;
+      const cy = (y+0.5)*cs;
+
+      if (v===2){
+        // промах
+        ctx.save();
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = "rgba(170,230,255,0.75)";
+        ctx.beginPath();
+        ctx.arc(cx, cy, cs*0.10, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (v===3){
+        // попадание
+        ctx.save();
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = "rgba(255,90,120,0.95)";
+        ctx.lineWidth = Math.max(2, cs*0.08);
+        ctx.beginPath();
+        ctx.moveTo(cx - cs*0.18, cy - cs*0.18);
+        ctx.lineTo(cx + cs*0.18, cy + cs*0.18);
+        ctx.moveTo(cx + cs*0.18, cy - cs*0.18);
+        ctx.lineTo(cx - cs*0.18, cy + cs*0.18);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+}
+
+function drawShipFancy(ctx, canvas, ship, reveal=true){
+  if (!reveal) return;
+
+  const cs = cellSize(canvas);
+  const pad = cs*0.10;
+
+  const bx = ship.x*cs + pad;
+  const by = ship.y*cs + pad;
+  const w = ship.dir===0 ? ship.len*cs - pad*2 : cs - pad*2;
+  const h = ship.dir===1 ? ship.len*cs - pad*2 : cs - pad*2;
+
+  const t = timeS();
+  const bob = Math.sin(t*2.1 + ship.x*0.7 + ship.y*0.9) * (cs*0.02);
+
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.35)";
+  ctx.shadowBlur = cs*0.40;
+  ctx.shadowOffsetY = cs*0.10;
+
+  const grad = ctx.createLinearGradient(bx, by, bx + (ship.dir===0?w:h), by + (ship.dir===0?h:w));
+  grad.addColorStop(0, "rgba(120,190,255,0.65)");
+  grad.addColorStop(0.5, "rgba(130,150,255,0.33)");
+  grad.addColorStop(1, "rgba(20,35,80,0.55)");
+
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = "rgba(240,245,255,0.22)";
+  ctx.lineWidth = Math.max(1, cs*0.05);
+
+  shipHullPath(ctx, bx, by + bob, w, h, ship.dir);
+  ctx.fill();
+  ctx.stroke();
+
+  // блик
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 0.55;
+  const shine = ctx.createLinearGradient(bx, by, bx, by + (ship.dir===0?h:w));
+  shine.addColorStop(0, "rgba(255,255,255,0.28)");
+  shine.addColorStop(1, "rgba(255,255,255,0.00)");
+  ctx.fillStyle = shine;
+  shipHullPath(ctx, bx + cs*0.08, by + bob + cs*0.08, w - cs*0.16, h*0.55, ship.dir);
+  ctx.fill();
+
+  // линии палубы
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = "rgba(255,255,255,0.14)";
+  ctx.lineWidth = Math.max(1, cs*0.03);
+  ctx.beginPath();
+  if (ship.dir===0){
+    const y1 = by + bob + h*0.38;
+    const y2 = by + bob + h*0.62;
+    ctx.moveTo(bx + w*0.10, y1); ctx.lineTo(bx + w*0.90, y1);
+    ctx.moveTo(bx + w*0.10, y2); ctx.lineTo(bx + w*0.90, y2);
+  } else {
+    const x1 = bx + w*0.38;
+    const x2 = bx + w*0.62;
+    ctx.moveTo(x1, by + bob + h*0.10); ctx.lineTo(x1, by + bob + h*0.90);
+    ctx.moveTo(x2, by + bob + h*0.10); ctx.lineTo(x2, by + bob + h*0.90);
+  }
+  ctx.stroke();
+
+  // иллюминаторы
+  ctx.fillStyle = "rgba(240,245,255,0.20)";
+  const ports = Math.max(2, ship.len*2);
+  for (let i=0;i<ports;i++){
+    const p = (i+1)/(ports+1);
+    let cx, cy;
+    if (ship.dir===0){
+      cx = bx + w*p;
+      cy = by + bob + h*0.75;
+    } else {
+      cx = bx + w*0.75;
+      cy = by + bob + h*p;
+    }
+    ctx.beginPath();
+    ctx.arc(cx, cy, cs*0.06, 0, Math.PI*2);
+    ctx.fill();
   }
 
-  // ====== DOM ======
-  const pCanvas = document.getElementById("pBoard");
-  const eCanvas = document.getElementById("eBoard");
-  const pCtx = pCanvas.getContext("2d");
-  const eCtx = eCanvas.getContext("2d");
+  ctx.restore();
+}
 
-  const statusEl = document.getElementById("status");
-  const hintEl = document.getElementById("hint");
-  const scoreEl = document.getElementById("score");
+function drawPlacementGhost(ctx, canvas, x,y,len,dir, ok){
+  const cs = cellSize(canvas);
+  const pad = cs*0.12;
+  const bx = x*cs + pad;
+  const by = y*cs + pad;
+  const w = dir===0 ? len*cs - pad*2 : cs - pad*2;
+  const h = dir===1 ? len*cs - pad*2 : cs - pad*2;
 
-  const rotateBtn = document.getElementById("rotateBtn");
-  const restartBtn = document.getElementById("restartBtn");
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+  ctx.strokeStyle = ok ? "rgba(120,255,190,0.85)" : "rgba(255,110,140,0.85)";
+  ctx.lineWidth = Math.max(2, cs*0.06);
+  shipHullPath(ctx, bx, by, w, h, dir);
+  ctx.stroke();
+  ctx.restore();
+}
 
-  // ====== DPR (чтобы на телефоне не было "пусто") ======
-  function setupCanvas(canvas, ctx) {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.style.width = SIZE + "px";
-    canvas.style.height = SIZE + "px";
-    canvas.width = Math.round(SIZE * dpr);
-    canvas.height = Math.round(SIZE * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+function renderBoard(ctx, canvas, board, ships, showShips){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawOcean(ctx, canvas);
+  drawGrid(ctx, canvas);
+
+  // корабли (красиво)
+  if (showShips){
+    for (const s of ships) drawShipFancy(ctx, canvas, s, true);
   }
-  setupCanvas(pCanvas, pCtx);
-  setupCanvas(eCanvas, eCtx);
 
-  // ====== ИГРОВЫЕ ПЕРЕМЕННЫЕ ======
-  let pBoard, eBoard;
-  let placementIndex;          // какой корабль ставим
-  let horizontal = true;
-  let mode = "place";          // place | battle | end
-  let score = 0;
+  // метки попаданий/промахов
+  drawMarkers(ctx, canvas, board);
+}
 
-  // для ИИ
-  let aiShots;                 // set "y,x"
-  let aiTargets;               // очередь "y,x" вокруг попадания
+function setMode(m){
+  mode = m;
+  if (mode==="place"){
+    modeEl.textContent = "Расстановка";
+    hintEl.textContent =
+      "Расстановка: тапай по своему полю, чтобы поставить корабли. Кнопка «Повернуть» меняет ориентацию. " +
+      "Когда все корабли поставлены — начнётся бой: стреляй по полю противника.";
+  } else if (mode==="battle"){
+    modeEl.textContent = "Бой";
+    hintEl.textContent =
+      "Бой: стреляй по полю противника. Красный крестик — попадание, точка — промах. " +
+      "Если попал — можешь стрелять ещё раз.";
+  } else {
+    modeEl.textContent = "Конец";
+  }
+}
 
-  function setStatus(text) { statusEl.textContent = text; }
-  function setHint(text) { hintEl.textContent = text; }
-  function setScore(v) { score = v; scoreEl.textContent = String(v); }
+// ======= Input =======
+let hoverCellMe = null;
 
-  // ====== УТИЛИТЫ ======
-  function inBounds(x,y){ return x>=0 && x<N && y>=0 && y<N; }
+function canvasToCell(canvas, ev){
+  const rect = canvas.getBoundingClientRect();
+  const dpr = (canvas.width / rect.width);
+  const x = (ev.clientX - rect.left) * dpr;
+  const y = (ev.clientY - rect.top) * dpr;
+  const cs = cellSize(canvas);
+  const cx = Math.floor(x / cs);
+  const cy = Math.floor(y / cs);
+  return {cx, cy, px:x, py:y};
+}
 
-  function key(x,y){ return `${y},${x}`; }
-  function parseKey(k){ const [y,x]=k.split(",").map(Number); return {x,y}; }
+meCanvas.addEventListener("pointermove", (ev)=>{
+  if (mode!=="place") return;
+  const {cx,cy} = canvasToCell(meCanvas, ev);
+  if (inBounds(cx,cy)) hoverCellMe = {cx,cy}; else hoverCellMe=null;
+});
 
-  function getCellFromEvent(canvas, evt) {
-    const rect = canvas.getBoundingClientRect();
-    const cx = (evt.clientX - rect.left) * (SIZE / rect.width);
-    const cy = (evt.clientY - rect.top) * (SIZE / rect.height);
-    const x = Math.floor(cx / CELL);
-    const y = Math.floor(cy / CELL);
+meCanvas.addEventListener("pointerdown", (ev)=>{
+  if (mode!=="place") return;
+  const {cx,cy} = canvasToCell(meCanvas, ev);
+  if (!inBounds(cx,cy)) return;
+
+  const len = SHIPS[placingIndex];
+  if (canPlace(meBoard, cx,cy,len,orientation)){
+    placeShip(meBoard, meShips, cx,cy,len,orientation);
+    placingIndex++;
+
+    if (placingIndex >= SHIPS.length){
+      setMode("battle");
+    }
+  }
+});
+
+enemyCanvas.addEventListener("pointerdown", (ev)=>{
+  if (mode!=="battle") return;
+  const {cx,cy,px,py} = canvasToCell(enemyCanvas, ev);
+  if (!inBounds(cx,cy)) return;
+
+  const v = enBoard[cy][cx];
+  if (v===2 || v===3) return; // уже стреляли
+
+  // выстрел игрока
+  const hit = (enBoard[cy][cx] === 1);
+  if (hit){
+    enBoard[cy][cx] = 3;
+    score++;
+    scoreEl.textContent = String(score);
+    spawnHit(px, py);
+
+    const info = shipAt(enShips, cx,cy);
+    if (info) info.ship.hits.add(info.index);
+
+    if (allSunk(enShips)){
+      setMode("end");
+      hintEl.textContent = "Победа! Все корабли противника уничтожены. Нажми «Заново» 🙂";
+      return;
+    }
+
+    // попал — стреляет снова (ничего не делаем)
+  } else {
+    enBoard[cy][cx] = 2;
+    spawnMiss(px, py);
+    // промах — ход ИИ
+    aiTurn();
+  }
+});
+
+// ======= AI =======
+function key(x,y){ return `${x},${y}`; }
+
+function aiPick(){
+  // если есть цели — добиваем
+  while (aiTargets.length){
+    const {x,y} = aiTargets.shift();
+    if (!inBounds(x,y)) continue;
+    if (aiTried.has(key(x,y))) continue;
     return {x,y};
   }
 
-  // проверка: можно ли ставить корабль (без касаний даже по диагонали)
-  function canPlace(board, x, y, len, horiz) {
-    for (let i=0;i<len;i++){
-      const xx = x + (horiz ? i : 0);
-      const yy = y + (horiz ? 0 : i);
-      if (!inBounds(xx,yy)) return false;
-      if (board[yy][xx] !== 0) return false;
-
-      // запрет касаний: проверяем окружение 8 клеток
-      for (let dy=-1; dy<=1; dy++){
-        for (let dx=-1; dx<=1; dx++){
-          const nx = xx+dx, ny = yy+dy;
-          if (inBounds(nx,ny) && board[ny][nx] === 1) return false;
-        }
-      }
-    }
-    return true;
+  // иначе случайно
+  for (let tries=0; tries<5000; tries++){
+    const x = Math.floor(Math.random()*GRID);
+    const y = Math.floor(Math.random()*GRID);
+    if (!aiTried.has(key(x,y))) return {x,y};
   }
+  return null;
+}
 
-  function placeShip(board, x, y, len, horiz) {
-    for (let i=0;i<len;i++){
-      const xx = x + (horiz ? i : 0);
-      const yy = y + (horiz ? 0 : i);
-      board[yy][xx] = 1;
-    }
-  }
+function aiTurn(){
+  const pick = aiPick();
+  if (!pick) return;
 
-  // ====== РЕНДЕР ======
-  function clear(ctx){
-    ctx.clearRect(0,0,SIZE,SIZE);
-  }
+  const {x,y} = pick;
+  aiTried.add(key(x,y));
 
-  function drawGrid(ctx){
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(233,237,247,.28)";
-    for (let i=0;i<=N;i++){
-      const p = i*CELL;
-      ctx.beginPath(); ctx.moveTo(p,0); ctx.lineTo(p,SIZE); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0,p); ctx.lineTo(SIZE,p); ctx.stroke();
-    }
-  }
+  const cs = cellSize(meCanvas);
+  const px = (x+0.5)*cs;
+  const py = (y+0.5)*cs;
 
-  function drawShips(ctx, board, hideShips) {
-    for (let y=0;y<N;y++){
-      for (let x=0;x<N;x++){
-        const v = board[y][x];
-        if (v === 1 && !hideShips){
-          ctx.fillStyle = "rgba(120,175,255,.40)";
-          ctx.fillRect(x*CELL+2, y*CELL+2, CELL-4, CELL-4);
-        }
-      }
-    }
-  }
+  const hit = (meBoard[y][x] === 1);
+  if (hit){
+    meBoard[y][x] = 3;
+    spawnHit(px, py);
 
-  function drawShots(ctx, board) {
-    for (let y=0;y<N;y++){
-      for (let x=0;x<N;x++){
-        const v = board[y][x];
-        const cx = x*CELL + CELL/2;
-        const cy = y*CELL + CELL/2;
+    const info = shipAt(meShips, x,y);
+    if (info) info.ship.hits.add(info.index);
 
-        if (v === 2){ // промах
-          ctx.fillStyle = "rgba(233,237,247,.55)";
-          ctx.beginPath();
-          ctx.arc(cx, cy, 3.2, 0, Math.PI*2);
-          ctx.fill();
-        }
-        if (v === 3){ // попадание
-          ctx.strokeStyle = "rgba(255,90,90,.95)";
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(x*CELL+8, y*CELL+8);
-          ctx.lineTo(x*CELL+CELL-8, y*CELL+CELL-8);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(x*CELL+CELL-8, y*CELL+8);
-          ctx.lineTo(x*CELL+8, y*CELL+CELL-8);
-          ctx.stroke();
-        }
-      }
-    }
-  }
+    // добавляем соседей как цели
+    aiTargets.push({x:x+1,y},{x:x-1,y},{x,y:y+1},{x,y:y-1});
 
-  function render() {
-    clear(pCtx);
-    drawGrid(pCtx);
-    drawShips(pCtx, pBoard, false);
-    drawShots(pCtx, pBoard);
-
-    clear(eCtx);
-    drawGrid(eCtx);
-    // корабли противника скрываем
-    drawShips(eCtx, eBoard, true);
-    drawShots(eCtx, eBoard);
-  }
-
-  // ====== ПОБЕДА/ПОРАЖЕНИЕ ======
-  function countAlive(board) {
-    let c = 0;
-    for (let y=0;y<N;y++){
-      for (let x=0;x<N;x++){
-        if (board[y][x] === 1) c++;
-      }
-    }
-    return c;
-  }
-
-  function endGame(win){
-    mode = "end";
-    setStatus(win ? "Победа! 🎉" : "Поражение 😿");
-    setHint(win
-      ? "Ты уничтожил все корабли противника. Нажми «Заново»."
-      : "Противник уничтожил твой флот. Нажми «Заново»."
-    );
-  }
-
-  // ====== РАССТАНОВКА ПРОТИВНИКА (случайно) ======
-  function randomInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
-
-  function autoPlaceFleet(board) {
-    for (const len of FLEET){
-      let placed = false;
-      for (let tries=0; tries<5000 && !placed; tries++){
-        const horiz = Math.random() < 0.5;
-        const x = randomInt(0, N-1);
-        const y = randomInt(0, N-1);
-        if (canPlace(board, x, y, len, horiz)){
-          placeShip(board, x, y, len, horiz);
-          placed = true;
-        }
-      }
-      if (!placed) return false;
-    }
-    return true;
-  }
-
-  // ====== ХОД ИИ ======
-  function aiAddTargetsAround(x,y) {
-    const dirs = [
-      {dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1},
-    ];
-    for (const d of dirs){
-      const nx = x+d.dx, ny = y+d.dy;
-      if (!inBounds(nx,ny)) continue;
-      const k = key(nx,ny);
-      if (!aiShots.has(k)) aiTargets.push(k);
-    }
-  }
-
-  function aiShootOne() {
-    if (mode !== "battle") return;
-
-    let pick = null;
-
-    // сначала добиваем рядом с попаданием
-    while (aiTargets.length > 0) {
-      const k = aiTargets.shift();
-      if (!aiShots.has(k)) { pick = k; break; }
+    if (allSunk(meShips)){
+      setMode("end");
+      hintEl.textContent = "Поражение… Противник уничтожил все твои корабли. Нажми «Заново» 😅";
+      return;
     }
 
-    // иначе случайно
-    if (!pick) {
-      let tries = 0;
-      while (tries++ < 10000) {
-        const x = randomInt(0,N-1);
-        const y = randomInt(0,N-1);
-        const k = key(x,y);
-        if (!aiShots.has(k)) { pick = k; break; }
-      }
-    }
+    // ИИ попал — пусть стреляет ещё раз (как у игрока)
+    aiTurn();
+  } else {
+    meBoard[y][x] = 2;
+    spawnMiss(px, py);
+  }
+}
 
-    if (!pick) return;
+// ======= UI Buttons =======
+rotBtn.addEventListener("click", ()=>{
+  orientation = orientation===0 ? 1 : 0;
+  rotLabel.textContent = orientation===0 ? "Гориз." : "Вертик.";
+});
 
-    aiShots.add(pick);
-    const {x,y} = parseKey(pick);
+restartBtn.addEventListener("click", ()=>{
+  resetGame();
+});
 
-    if (pBoard[y][x] === 1) {
-      pBoard[y][x] = 3; // hit
-      aiAddTargetsAround(x,y);
-    } else if (pBoard[y][x] === 0) {
-      pBoard[y][x] = 2; // miss
-    }
+// ======= Game init / loop =======
+function resetGame(){
+  score = 0;
+  scoreEl.textContent = "0";
+  placingIndex = 0;
+  hoverCellMe = null;
+  aiTargets = [];
+  aiTried = new Set();
+  FX.particles = [];
 
-    render();
+  meBoard = newBoard();
+  enBoard = newBoard();
+  meShips = [];
+  enShips = [];
 
-    if (countAlive(pBoard) === 0) endGame(false);
+  // расставляем врага
+  randomPlaceAll(enBoard, enShips);
+
+  setMode("place");
+}
+
+function resizeAll(){
+  fitCanvas(meCanvas);
+  fitCanvas(enemyCanvas);
+}
+
+window.addEventListener("resize", ()=>{
+  resizeAll();
+});
+
+let lastT = performance.now();
+function loop(){
+  const t = performance.now();
+  const dt = (t - lastT)/1000;
+  lastT = t;
+
+  // рендер полей
+  renderBoard(meCtx, meCanvas, meBoard, meShips, true);
+  renderBoard(enCtx, enemyCanvas, enBoard, enShips, false);
+
+  // призрак корабля при расстановке
+  if (mode==="place" && hoverCellMe){
+    const len = SHIPS[placingIndex];
+    const ok = canPlace(meBoard, hoverCellMe.cx, hoverCellMe.cy, len, orientation);
+    drawPlacementGhost(meCtx, meCanvas, hoverCellMe.cx, hoverCellMe.cy, len, orientation, ok);
   }
 
-  // ====== ИГРОВЫЕ ДЕЙСТВИЯ ======
-  function startBattle() {
-    mode = "battle";
-    setStatus("Режим: Бой");
-    setHint("Стреляй по полю противника. Если промах — ходит противник.");
-  }
+  // частицы поверх (и там и там — чтобы попадания были на нужном канвасе)
+  updateAndDrawParticles(meCtx, dt);
+  updateAndDrawParticles(enCtx, dt);
 
-  function onPlayerPlace(evt) {
-    if (mode !== "place") return;
+  requestAnimationFrame(loop);
+}
 
-    const {x,y} = getCellFromEvent(pCanvas, evt);
-    if (!inBounds(x,y)) return;
-
-    const len = FLEET[placementIndex];
-    if (!canPlace(pBoard, x, y, len, horizontal)) return;
-
-    placeShip(pBoard, x, y, len, horizontal);
-    placementIndex++;
-
-    if (placementIndex >= FLEET.length) {
-      // всё, расставили
-      startBattle();
-    } else {
-      setHint(`Ставь корабль длиной ${FLEET[placementIndex]}. (Повернуть: ${horizontal ? "Гориз." : "Вертик."})`);
-    }
-
-    render();
-  }
-
-  function onPlayerShoot(evt) {
-    if (mode !== "battle") return;
-
-    const {x,y} = getCellFromEvent(eCanvas, evt);
-    if (!inBounds(x,y)) return;
-
-    const v = eBoard[y][x];
-    if (v === 2 || v === 3) return; // уже стреляли
-
-    if (v === 1) {
-      eBoard[y][x] = 3; // hit
-      setScore(score + 1);
-      render();
-
-      if (countAlive(eBoard) === 0) endGame(true);
-    } else {
-      eBoard[y][x] = 2; // miss
-      render();
-      // ход ИИ после маленькой паузы
-      setTimeout(aiShootOne, 350);
-    }
-  }
-
-  // ====== КНОПКИ ======
-  rotateBtn.addEventListener("click", () => {
-    horizontal = !horizontal;
-    rotateBtn.textContent = "Повернуть: " + (horizontal ? "Гориз." : "Вертик.");
-    if (mode === "place" && placementIndex < FLEET.length) {
-      setHint(`Ставь корабль длиной ${FLEET[placementIndex]}. (Повернуть: ${horizontal ? "Гориз." : "Вертик."})`);
-    }
-  });
-
-  restartBtn.addEventListener("click", reset);
-
-  // ====== СОБЫТИЯ ТАПА ======
-  pCanvas.addEventListener("click", onPlayerPlace);
-  eCanvas.addEventListener("click", onPlayerShoot);
-
-  // ====== СТАРТ/СБРОС ======
-  function reset() {
-    pBoard = makeBoard();
-    eBoard = makeBoard();
-    placementIndex = 0;
-    horizontal = true;
-    mode = "place";
-    setScore(0);
-
-    rotateBtn.textContent = "Повернуть: Гориз.";
-    setStatus("Режим: Расстановка");
-    setHint(`Ставь корабль длиной ${FLEET[placementIndex]}. Тапай по своему полю.`);
-
-    aiShots = new Set();
-    aiTargets = [];
-
-    // ставим флот противнику
-    autoPlaceFleet(eBoard);
-
-    render();
-  }
-
-  reset();
-})();
+// START
+resizeAll();
+resetGame();
+loop();
