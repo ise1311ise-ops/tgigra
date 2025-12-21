@@ -63,10 +63,9 @@
             <div class="panelSub" id="place-status">Тапни корабль справа → тапни по клетке</div>
           </div>
 
-          <div class="boardWrap">
-            <div class="axis topAxis" id="axis-x"></div>
-            <div class="axis leftAxis" id="axis-y"></div>
-            <div class="board" id="player-board"></div>
+          <!-- NEW: one grid 11x11 (axes + board) -->
+          <div class="gridFrame">
+            <div class="grid11" id="player-grid11"></div>
           </div>
 
           <div class="placeControls">
@@ -105,7 +104,6 @@
 
     <div class="paper">
       <div class="lobbyLayout">
-        <!-- Players list -->
         <div class="panel sketchCard">
           <div class="panelHeader">
             <div class="panelTitle">Онлайн игроки</div>
@@ -119,7 +117,6 @@
           </div>
         </div>
 
-        <!-- Right info (small) -->
         <div class="panel sketchCard">
           <div class="panelHeader">
             <div class="panelTitle">Комната</div>
@@ -176,7 +173,7 @@
     </div>
   </section>
 
-  <!-- ===== Chat Drawer (opens from top button) ===== -->
+  <!-- ===== Chat Drawer ===== -->
   <div class="drawer hidden" id="chatDrawer" aria-label="Чат">
     <div class="drawerCard sketchCard">
       <div class="drawerHead">
