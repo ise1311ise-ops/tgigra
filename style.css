@@ -1,106 +1,112 @@
 :root{
   --bg1:#040712;
-  --bg2:#08122c;
-  --card: rgba(255,255,255,.06);
-  --stroke: rgba(233,237,247,.28);
-  --text: rgba(233,237,247,.92);
-  --muted: rgba(233,237,247,.65);
-  --btn: rgba(93,148,255,.18);
-  --btn2: rgba(255,255,255,.10);
-  --ship: rgba(120,175,255,.40);
-  --ship2: rgba(120,175,255,.55);
-  --hit: rgba(255,90,90,.95);
-  --miss: rgba(233,237,247,.55);
+  --bg2:#06102a;
+  --glass: rgba(255,255,255,0.06);
+  --glass2: rgba(255,255,255,0.08);
+  --stroke: rgba(255,255,255,0.12);
+  --text: rgba(240,246,255,0.92);
+  --muted: rgba(240,246,255,0.55);
+  --accent: rgba(120,160,255,0.85);
+  --accent2: rgba(96,220,255,0.75);
 }
 
-*{ box-sizing: border-box; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
 html,body{ height:100%; }
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--text);
-  background: radial-gradient(1000px 600px at 50% 0%, var(--bg2), var(--bg1));
-}
-
-.topbar{
-  padding: 14px 14px 10px;
-}
-
-.line1{
-  display:flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.status{
-  font-size: 18px;
-  font-weight: 700;
-}
-.score{
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.buttons{
-  margin-top: 10px;
-  display:flex;
-  gap: 10px;
-}
-
-button{
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: var(--btn);
-  color: var(--text);
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-button.secondary{
-  background: var(--btn2);
+  background:
+    radial-gradient(1200px 600px at 30% 10%, #0e1b4a 0%, transparent 55%),
+    radial-gradient(900px 500px at 80% 15%, #0b2a3a 0%, transparent 55%),
+    linear-gradient(180deg, var(--bg1), var(--bg2));
 }
 
 .wrap{
-  padding: 0 14px 20px;
   max-width: 520px;
   margin: 0 auto;
+  padding: 16px 14px 26px;
+}
+
+.top{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom: 12px;
+}
+
+.top__left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(10px);
+}
+
+.stat .label{ color: var(--muted); margin-right:6px; }
+.dot{ color: var(--muted); }
+
+.top__right{
+  display:flex;
+  gap:10px;
+}
+
+.btn{
+  border: 1px solid var(--stroke);
+  background: var(--glass);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 16px;
+  font-weight: 600;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+  backdrop-filter: blur(10px);
+}
+
+.btn:active{ transform: translateY(1px); }
+.btn--primary{
+  border-color: rgba(140,170,255,0.35);
+  background: linear-gradient(180deg, rgba(140,170,255,0.35), rgba(80,120,255,0.18));
 }
 
 .panel{
   margin-top: 12px;
   padding: 12px;
-  border-radius: 18px;
-  background: var(--card);
-  border: 1px solid rgba(255,255,255,.08);
-  box-shadow: 0 16px 40px rgba(0,0,0,.35);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+  border: 1px solid var(--stroke);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.35);
 }
 
-.label{
+.panel__title{
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
   margin-bottom: 10px;
+  letter-spacing: 0.2px;
 }
+
+.muted{ color: var(--muted); font-weight: 600; }
 
 canvas{
+  width:100%;
+  height:auto;
   display:block;
-  border-radius: 16px;
-  background: rgba(0,0,0,.22);
-  width: 100%;
-  max-width: 420px;
-  margin: 0 auto;
-  touch-action: manipulation; /* важно для телефона */
+  border-radius: 18px;
+  background: radial-gradient(900px 380px at 35% 18%, rgba(120,200,255,0.12), transparent 60%),
+              radial-gradient(600px 300px at 80% 30%, rgba(100,120,255,0.10), transparent 60%),
+              linear-gradient(180deg, rgba(5,10,22,0.92), rgba(3,6,14,0.92));
+  border: 1px solid rgba(255,255,255,0.10);
 }
 
 .hint{
-  margin-top: 14px;
+  margin-top: 12px;
   padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.08);
-  color: var(--muted);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: rgba(240,246,255,0.70);
   line-height: 1.35;
 }
