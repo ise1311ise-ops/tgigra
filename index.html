@@ -2,30 +2,44 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
   <title>Морской бой</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="top">
-    <div class="scoreline">
-      Очки: <span id="score">0</span>
-      <span class="sep">•</span>
-      Режим: <span id="mode">Расстановка</span>
+  <header class="top">
+    <div class="line">
+      <div class="stats">
+        <span>Очки: <b id="score">0</b></span>
+        <span class="dot">•</span>
+        <span>Режим: <b id="mode">Расстановка</b></span>
+      </div>
+
+      <div class="actions">
+        <button id="rotate">Повернуть: <span id="rotState">Гориз.</span></button>
+        <button id="restart" class="danger">Заново</button>
+      </div>
     </div>
+  </header>
 
-    <div class="controls">
-      <button id="rotate">Повернуть: <span id="ori">Гориз.</span></button>
-      <button id="restart">Заново</button>
+  <main class="wrap">
+    <section class="boards">
+      <div class="boardCard">
+        <div class="boardTitle">Твоё поле</div>
+        <canvas id="pBoard" width="360" height="360"></canvas>
+      </div>
+
+      <div class="boardCard">
+        <div class="boardTitle">Поле противника (стреляй сюда)</div>
+        <canvas id="eBoard" width="360" height="360"></canvas>
+      </div>
+    </section>
+
+    <div class="hint" id="hint">
+      Расстановка: тапай по своему полю, чтобы поставить корабли. Кнопка «Повернуть» меняет ориентацию.
+      Когда все корабли поставлены — начнётся бой: стреляй по полю противника.
     </div>
-  </div>
-
-  <canvas id="game" width="360" height="420"></canvas>
-
-  <div class="hint" id="hint">
-    Расстановка: тапай по сетке, чтобы поставить корабли.
-    Потом начнётся атака: тапай по клеткам, чтобы стрелять.
-  </div>
+  </main>
 
   <script src="game.js"></script>
 </body>
