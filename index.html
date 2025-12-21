@@ -4,46 +4,57 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
   <title>Морской бой</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="./style.css?v=1" />
 </head>
 
 <body>
   <div class="wrap">
-    <header class="top">
-      <div class="top__left">
-        <div class="stat">
-          <span class="label">Очки:</span>
-          <span id="score">0</span>
-        </div>
-        <div class="dot">•</div>
-        <div class="stat">
-          <span class="label">Режим:</span>
-          <span id="mode">Расстановка</span>
-        </div>
+    <header class="topbar">
+      <div class="title">
+        <div class="h1">Морской бой</div>
+        <div class="sub" id="statusText">Режим: <b>Расстановка</b> — ставь корабли на своём поле</div>
       </div>
 
-      <div class="top__right">
-        <button id="rotate" class="btn">Повернуть: <span id="rotLabel">Гориз.</span></button>
-        <button id="restart" class="btn btn--primary">Заново</button>
+      <div class="hud">
+        <div class="pill">Очки: <span id="score">0</span></div>
+        <div class="pill">Осталось поставить: <span id="leftToPlace">10</span></div>
+      </div>
+
+      <div class="controls">
+        <button id="rotate" class="btn">Повернуть: <span id="rotText">Гориз.</span></button>
+        <button id="restart" class="btn btn2">Заново</button>
       </div>
     </header>
 
-    <section class="panel">
-      <div class="panel__title">Твоё поле</div>
-      <canvas id="me" width="360" height="360"></canvas>
-    </section>
+    <main class="boards">
+      <section class="boardCard">
+        <div class="boardHead">
+          <div class="boardTitle">Твоё поле</div>
+          <div class="boardHint" id="yourHint">Тапай по клеткам, чтобы поставить корабли</div>
+        </div>
+        <canvas id="you" width="360" height="360"></canvas>
+      </section>
 
-    <section class="panel">
-      <div class="panel__title">Поле противника <span class="muted">(стреляй сюда)</span></div>
-      <canvas id="enemy" width="360" height="360"></canvas>
-    </section>
+      <section class="boardCard">
+        <div class="boardHead">
+          <div class="boardTitle">Поле противника</div>
+          <div class="boardHint" id="enemyHint">Пока нельзя стрелять — сначала расставь корабли</div>
+        </div>
+        <canvas id="enemy" width="360" height="360"></canvas>
+      </section>
+    </main>
 
-    <footer class="hint" id="hint">
-      Расстановка: тапай по своему полю, чтобы поставить корабли. Кнопка «Повернуть» меняет ориентацию.
-      Когда все корабли поставлены — начнётся бой: стреляй по полю противника.
+    <footer class="footer">
+      <div class="shipsRow" id="shipPlan">
+        План: 4×1, 3×2, 2×3, 1×4 (10 кораблей)
+      </div>
+      <div class="tip" id="tip">
+        Расстановка: ставь корабли на своём поле. Кнопка «Повернуть» меняет ориентацию.
+        Корабли не могут касаться даже углами.
+      </div>
     </footer>
   </div>
 
-  <script src="game.js"></script>
+  <script defer src="./game.js?v=1"></script>
 </body>
 </html>
