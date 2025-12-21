@@ -1,8 +1,9 @@
-// ===== Router / Screen switching =====
+// ================= Router / Screen switching =================
 const screens = {
   menu: document.getElementById('screen-menu'),
   placement: document.getElementById('screen-placement'),
   lobby: document.getElementById('screen-lobby'),
+  battle: document.getElementById('screen-battle'),
 };
 
 function showScreen(name, push = true){
@@ -10,14 +11,7 @@ function showScreen(name, push = true){
     if(k === name) el.classList.remove('hidden');
     else el.classList.add('hidden');
   });
-
-  // прокрутка текущего экрана вверх (как отдельная страница)
-  const active = screens[name].querySelector('.paper');
-  if(active) active.scrollTop = 0;
-
-  if(push){
-    location.hash = `#${name}`;
-  }
+  if(push) location.hash = `#${name}`;
 }
 
 window.addEventListener('hashchange', () => {
@@ -25,7 +19,7 @@ window.addEventListener('hashchange', () => {
   if(screens[h]) showScreen(h, false);
 });
 
-// ===== Modal =====
+// ================= Modal =================
 const modal = document.getElementById('modal');
 const modalTitle = document.getElementById('modalTitle');
 const modalBody = document.getElementById('modalBody');
@@ -37,11 +31,9 @@ function openModal(title, html){
   modalBody.innerHTML = html;
   modal.classList.remove('hidden');
 }
-function closeModal(){
-  modal.classList.add('hidden');
-}
+function closeModal(){ modal.classList.add('hidden'); }
 
-// ===== Share helper =====
+// ================= Share helper =================
 async function shareLink(){
   const url = location.href.split('#')[0] + '#menu';
   try{
@@ -52,7 +44,6 @@ async function shareLink(){
       openModal('Поделиться', `Ссылка скопирована:<br><b>${url}</b>`);
     }
   }catch(e){
-    // fallback
     try{
       await navigator.clipboard.writeText(url);
       openModal('Поделиться', `Ссылка скопирована:<br><b>${url}</b>`);
@@ -62,50 +53,57 @@ async function shareLink(){
   }
 }
 
-// ===== Menu actions =====
-document.getElementById('btn-online').onclick = () => {
-  // переход на расстановку
-  showScreen('placement');
-};
+// ================= Chat Drawer =================
+const chatDrawer = document.getElementById('chatDrawer');
+const btnOpenChat = document.getElementById('btn-open-chat');
+const btnBattleChat = document.getElementById('btn-battle-chat');
+const btnCloseChat = document.getElementById('btn-close-chat');
 
+function openChat(){ chatDrawer.classList.remove('hidden'); }
+function closeChat(){ chatDrawer.classList.add('hidden'); }
+
+btnCloseChat.onclick = closeChat;
+btnOpenChat.onclick = openChat;
+btnBattleChat.onclick = openChat;
+
+// close drawer on background click
+chatDrawer.addEventListener('click', (e) => {
+  if(e.target === chatDrawer) closeChat();
+});
+
+// ================= Menu actions =================
+document.getElementById('btn-online').onclick = () => showScreen('placement');
 document.getElementById('btn-settings').onclick = () => {
   openModal('Настройки', `
     <div>• Звук: <b>вкл</b> (макет)</div>
     <div>• Подсказки: <b>вкл</b> (макет)</div>
     <div>• Тема: <b>тетрадь</b></div>
-    <br>
-    <div style="opacity:.8">Сделаем по-настоящему позже: сохранение в localStorage, переключатели и т.д.</div>
   `);
 };
-
 document.getElementById('btn-share').onclick = shareLink;
-
 document.getElementById('btn-support').onclick = () => {
   openModal('Поддержка', `
     <b>Как играть:</b><br>
-    1) В «Онлайн игра» расставь корабли.<br>
-    2) Нажми «Старт» → попадёшь в игровой зал.<br>
-    3) Там выбирай комнату и общайся в чате.<br>
-    <br>
-    <div style="opacity:.85">Сейчас это UI-макет (без реального онлайна).</div>
+    1) «Онлайн игра» → расставь корабли.<br>
+    2) «Дальше» → Игровой зал.<br>
+    3) Выбери игрока → начнётся бой 1×1.<br>
+    <br><div style="opacity:.85">Сейчас это локальный макет.</div>
   `);
 };
-
 document.getElementById('btn-menu-help').onclick = () => {
-  openModal('Помощь', 'Нажми <b>Онлайн игра</b> → расставь корабли → <b>Старт</b> → зал.');
+  openModal('Помощь', 'Нажми <b>Онлайн игра</b> → расставь корабли → <b>Дальше</b>.');
 };
 document.getElementById('btn-menu-more').onclick = () => {
-  openModal('Меню', 'Здесь потом сделаем «Статистика», «Достижения», «Магазин» как на скрине.');
+  openModal('Меню', 'Позже добавим: статистика / достижения / магазин.');
 };
 
-// ===== Topbar buttons =====
 document.getElementById('btn-home-from-placement').onclick = () => showScreen('menu');
 document.getElementById('btn-share-from-placement').onclick = shareLink;
 
 document.getElementById('btn-home-from-lobby').onclick = () => showScreen('menu');
-document.getElementById('btn-close-lobby').onclick = () => showScreen('menu');
+document.getElementById('btn-back-to-placement').onclick = () => showScreen('placement');
 
-// ===== Placement (manual + auto) =====
+// ================= Placement (manual + auto) =================
 const axisX = document.getElementById('axis-x');
 const axisY = document.getElementById('axis-y');
 const boardEl = document.getElementById('player-board');
@@ -118,17 +116,16 @@ const placeStatus = document.getElementById('place-status');
 
 const SIZE = 10;
 const letters = ['А','Б','В','Г','Д','Е','Ж','З','И','К'];
-const shipSet = [4,3,3,2,2,2,1,1,1,1]; // классика
+const shipSet = [4,3,3,2,2,2,1,1,1,1];
 
 let playerGrid = makeGrid();
-let orientation = 'h'; // h/v
-let selectedShipIndex = 0; // index in remaining list
+let orientation = 'h';
+let selectedShipIndex = 0;
 let shipsRemaining = shipSet.map((len, idx) => ({ id: idx, len, placed: false }));
-let placedShips = []; // {id,len,cells:[{r,c}]}
+let placedShips = [];
 
 function makeGrid(){
   return Array.from({length: SIZE}, () => Array.from({length: SIZE}, () => 0));
-  // 0 empty, 1 ship
 }
 
 function buildAxes(){
@@ -169,7 +166,6 @@ function renderBoard(){
     cell.classList.remove('blocked');
   });
 
-  // подсветка запрета вокруг кораблей (чтобы было понятнее)
   const blocked = computeBlocked(playerGrid);
   blocked.forEach(({r,c}) => {
     const q = boardEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
@@ -225,7 +221,7 @@ function renderFleet(){
       if(s.placed) return;
       selectedShipIndex = idx;
       renderFleet();
-      placeStatus.textContent = `Выбран корабль: ${s.len} • Ориентация: ${orientation === 'h' ? 'гориз.' : 'вертик.'}`;
+      placeStatus.textContent = `Выбран: ${s.len} • ${orientation === 'h' ? 'гориз.' : 'вертик.'}`;
     };
 
     fleetEl.appendChild(item);
@@ -242,13 +238,11 @@ function canPlaceShip(r,c,len,ori, grid){
     cells.push({r:rr,c:cc});
   }
 
-  // правило: корабли не касаются (включая диагональ)
   for(const cell of cells){
     for(let dr=-1; dr<=1; dr++){
       for(let dc=-1; dc<=1; dc++){
         const rr = cell.r+dr, cc = cell.c+dc;
         if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) continue;
-        // если рядом стоит корабль, но это не часть текущего
         const isPart = cells.some(x => x.r===rr && x.c===cc);
         if(!isPart && grid[rr][cc] === 1) return null;
       }
@@ -274,30 +268,28 @@ function selectNextShip(){
 }
 
 function onPlaceClick(r,c){
-  const ship = shipsRemaining[selectedShipIndex];
-  if(!ship || ship.placed){
-    selectNextShip();
-  }
-  const ship2 = shipsRemaining[selectedShipIndex];
-  if(!ship2 || ship2.placed) return;
+  let ship = shipsRemaining[selectedShipIndex];
+  if(!ship || ship.placed) selectNextShip();
+  ship = shipsRemaining[selectedShipIndex];
+  if(!ship || ship.placed) return;
 
-  const cells = canPlaceShip(r,c, ship2.len, orientation, playerGrid);
+  const cells = canPlaceShip(r,c, ship.len, orientation, playerGrid);
   if(!cells){
-    placeStatus.textContent = `Нельзя поставить сюда (${ship2.len})`;
+    placeStatus.textContent = `Нельзя поставить сюда (${ship.len})`;
     return;
   }
 
-  placeShip(cells, ship2);
+  placeShip(cells, ship);
   renderBoard();
   renderFleet();
 
   if(allPlaced()){
-    placeStatus.textContent = 'Все корабли расставлены! Нажми «Старт».';
+    placeStatus.textContent = 'Готово! Нажми «Дальше».';
     btnStart.disabled = false;
   }else{
     selectNextShip();
     renderFleet();
-    placeStatus.textContent = `Поставь следующий корабль: ${shipsRemaining[selectedShipIndex].len}`;
+    placeStatus.textContent = `Следующий: ${shipsRemaining[selectedShipIndex].len}`;
   }
 }
 
@@ -320,36 +312,25 @@ function resetPlacement(){
   renderFleet();
 }
 
-btnAuto.onclick = () => {
-  autoPlaceAll();
-};
+btnAuto.onclick = () => autoPlaceAll();
 
 function autoPlaceAll(){
   resetPlacement();
-  // авто-расстановка с попытками
   for(const ship of shipsRemaining){
     let ok = false;
-    for(let t=0;t<500;t++){
+    for(let t=0;t<800;t++){
       const ori = Math.random() < 0.5 ? 'h' : 'v';
       const r = Math.floor(Math.random()*SIZE);
       const c = Math.floor(Math.random()*SIZE);
       const cells = canPlaceShip(r,c, ship.len, ori, playerGrid);
-      if(cells){
-        placeShip(cells, ship);
-        ok = true;
-        break;
-      }
+      if(cells){ placeShip(cells, ship); ok = true; break; }
     }
-    if(!ok){
-      // если не получилось — начнем заново (редко)
-      resetPlacement();
-      return autoPlaceAll();
-    }
+    if(!ok){ resetPlacement(); return autoPlaceAll(); }
   }
   btnStart.disabled = false;
   renderBoard();
   renderFleet();
-  placeStatus.textContent = 'Авто-расстановка готова! Нажми «Старт».';
+  placeStatus.textContent = 'Авто-расстановка готова! Нажми «Дальше».';
 }
 
 btnStart.onclick = () => {
@@ -357,68 +338,60 @@ btnStart.onclick = () => {
     placeStatus.textContent = 'Сначала расставь все корабли.';
     return;
   }
-  // Переход в зал после расстановки
   initLobbyOnce();
   showScreen('lobby');
 };
 
-// ===== Lobby (rooms + chat) =====
-const roomsEl = document.getElementById('rooms');
-const chatBox = document.getElementById('chatBox');
-const chatInput = document.getElementById('chatInput');
-const btnSend = document.getElementById('btn-send');
-const btnEmoji = document.getElementById('btn-emoji');
-const lobbyCount = document.getElementById('lobby-count');
+// ================= Lobby: Online Players (NOT rooms) =================
+const playersEl = document.getElementById('players');
 const onlinePercent = document.getElementById('online-percent');
+const youNickEl = document.getElementById('youNick');
+
+const YOU = 'user0';
+const ONLINE_USERS = Array.from({length: 12}, (_, i) => `user${i+1}`);
+
+youNickEl.textContent = YOU;
+onlinePercent.textContent = '96%';
+document.getElementById('badge-online').textContent = String(ONLINE_USERS.length);
 
 let lobbyInited = false;
-let activeRoomId = null;
-
-const fakeRooms = [
-  { id: 'r1', name: 'Дезире', ping: 98 },
-  { id: 'r2', name: 'крым1962россия', ping: 93 },
-  { id: 'r3', name: 'Брюнетка', ping: 92 },
-  { id: 'r4', name: '*Васяня64*', ping: 98 },
-  { id: 'r5', name: 'Даниил Семенюк', ping: 81 },
-  { id: 'r6', name: 'Джей Доу', ping: 98 },
-  { id: 'r7', name: 'Малая07 Б/А', ping: 98 },
-  { id: 'r8', name: 'Лекарь', ping: 94 },
-  { id: 'r9', name: 'ИНТЕРСТЕЛЛАР Б/А', ping: 89 },
-];
-
-const fakeMsgs = [
-  { who: 'penelope', text: 'у меня новая тактика — принятие 😂😂😂' },
-  { who: 'ЕНОТИК*', text: 'СИНИЙ НОС, НИЧЕГО' },
-  { who: 'СИНИЙ НОС', text: 'свернуть? да ок!' },
-  { who: 'penelope', text: '0:1' },
-];
 
 function initLobbyOnce(){
   if(lobbyInited) return;
   lobbyInited = true;
 
-  lobbyCount.textContent = '119';
-  onlinePercent.textContent = '96%';
-
-  // rooms
-  roomsEl.innerHTML = '';
-  fakeRooms.forEach(r => {
+  playersEl.innerHTML = '';
+  ONLINE_USERS.forEach((name, i) => {
     const card = document.createElement('div');
-    card.className = 'roomCard';
-    card.dataset.id = r.id;
+    card.className = 'playerCard';
     card.innerHTML = `
-      <div class="roomName">${escapeHtml(r.name)}</div>
-      <div class="roomSub">${r.ping}% • ждёт соперника</div>
+      <div class="playerName">${escapeHtml(name)}</div>
+      <div class="playerSub">${95 - (i%7)}% • готов</div>
     `;
-    card.onclick = () => selectRoom(r.id);
-    roomsEl.appendChild(card);
+    card.onclick = () => startBattle(name);
+    playersEl.appendChild(card);
   });
 
-  selectRoom(fakeRooms[0].id);
+  // init chat messages (common room)
+  initChatOnce();
+}
 
-  // chat
+// ================= Chat: common room =================
+const chatBox = document.getElementById('chatBox');
+const chatInput = document.getElementById('chatInput');
+const btnSend = document.getElementById('btn-send');
+const btnEmoji = document.getElementById('btn-emoji');
+
+let chatInited = false;
+
+function initChatOnce(){
+  if(chatInited) return;
+  chatInited = true;
+
   chatBox.innerHTML = '';
-  fakeMsgs.forEach(m => addMsg(m.who, m.text));
+  addMsg('user1', 'привет!');
+  addMsg('user2', 'кто в бой?');
+  addMsg('user3', 'я готов 🙂');
 
   btnSend.onclick = sendMsg;
   chatInput.addEventListener('keydown', (e) => {
@@ -429,33 +402,6 @@ function initLobbyOnce(){
     chatInput.value += '🙂';
     chatInput.focus();
   };
-}
-
-function selectRoom(id){
-  activeRoomId = id;
-  [...roomsEl.querySelectorAll('.roomCard')].forEach(c => {
-    c.classList.toggle('active', c.dataset.id === id);
-  });
-  addSys(`Вы выбрали комнату: ${roomName(id)} (макет)`);
-}
-
-function roomName(id){
-  const r = fakeRooms.find(x => x.id === id);
-  return r ? r.name : id;
-}
-
-function addSys(text){
-  const wrap = document.createElement('div');
-  wrap.className = 'msg';
-  wrap.innerHTML = `
-    <div class="avatar">i</div>
-    <div class="msgBody">
-      <div class="msgName">система</div>
-      <div class="msgText">${escapeHtml(text)}</div>
-    </div>
-  `;
-  chatBox.appendChild(wrap);
-  chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 function addMsg(who, text){
@@ -472,29 +418,254 @@ function addMsg(who, text){
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
+function addSys(text){
+  const wrap = document.createElement('div');
+  wrap.className = 'msg';
+  wrap.innerHTML = `
+    <div class="avatar">i</div>
+    <div class="msgBody">
+      <div class="msgName">система</div>
+      <div class="msgText">${escapeHtml(text)}</div>
+    </div>
+  `;
+  chatBox.appendChild(wrap);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
 function sendMsg(){
   const t = chatInput.value.trim();
   if(!t) return;
-  addMsg('ты', t);
+  addMsg(YOU, t);
   chatInput.value = '';
-  // фейковый ответ
-  setTimeout(() => addMsg('penelope', 'ок 🙂'), 450);
+
+  const responders = ['user1','user2','user3','user4'];
+  const who = responders[Math.floor(Math.random()*responders.length)];
+  setTimeout(() => addMsg(who, 'ок 🙂'), 400);
 }
 
+// ================= Battle 1x1 (local mock) =================
+const battleOppEl = document.getElementById('battle-opponent');
+const myBattleEl = document.getElementById('battle-my');
+const enemyBattleEl = document.getElementById('battle-enemy');
+const battleStatusL = document.getElementById('battle-status-left');
+const battleStatusR = document.getElementById('battle-status-right');
+const btnBackToLobby = document.getElementById('btn-back-to-lobby');
+const btnBattleExit = document.getElementById('btn-battle-exit');
+const btnBattleRestart = document.getElementById('btn-battle-restart');
+
+btnBackToLobby.onclick = () => showScreen('lobby');
+btnBattleExit.onclick = () => showScreen('lobby');
+btnBattleRestart.onclick = () => {
+  if(currentOpponent) startBattle(currentOpponent);
+};
+
+let currentOpponent = null;
+
+let myShipsGrid = null;        // 1 ship, 0 empty
+let myShotsGrid = null;        // hits on my field: 2 hit, 3 miss, 0 untouched
+let enemyShipsGrid = null;     // hidden ships
+let enemyShotsGrid = null;     // my shots on enemy: 2 hit, 3 miss
+
+let myTurn = true;
+
+function startBattle(opponent){
+  currentOpponent = opponent;
+  battleOppEl.textContent = opponent;
+
+  // copy your placed grid as ships
+  myShipsGrid = playerGrid.map(row => row.slice());
+  myShotsGrid = makeGrid();
+
+  // generate enemy ships
+  enemyShipsGrid = generateEnemyShips();
+  enemyShotsGrid = makeGrid();
+
+  myTurn = true;
+  battleStatusL.textContent = 'защищайся';
+  battleStatusR.textContent = 'твой ход';
+
+  buildBattleBoards();
+  renderBattleBoards();
+
+  addSys(`Матч 1×1: ${YOU} vs ${opponent} (локальный макет)`);
+  showScreen('battle');
+}
+
+function buildBattleBoards(){
+  myBattleEl.innerHTML = '';
+  enemyBattleEl.innerHTML = '';
+
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      // my
+      const a = document.createElement('div');
+      a.className = 'cell';
+      a.dataset.r = String(r);
+      a.dataset.c = String(c);
+      myBattleEl.appendChild(a);
+
+      // enemy
+      const b = document.createElement('div');
+      b.className = 'cell';
+      b.dataset.r = String(r);
+      b.dataset.c = String(c);
+      b.addEventListener('click', () => onShootEnemy(r,c));
+      enemyBattleEl.appendChild(b);
+    }
+  }
+}
+
+function renderBattleBoards(){
+  // my board: show ships + enemy shots
+  myBattleEl.querySelectorAll('.cell').forEach(cell => {
+    const r = Number(cell.dataset.r);
+    const c = Number(cell.dataset.c);
+    cell.classList.toggle('ship', myShipsGrid[r][c] === 1);
+    cell.classList.toggle('hit', myShotsGrid[r][c] === 2);
+    cell.classList.toggle('miss', myShotsGrid[r][c] === 3);
+  });
+
+  // enemy board: do NOT show ships, only shots
+  enemyBattleEl.querySelectorAll('.cell').forEach(cell => {
+    const r = Number(cell.dataset.r);
+    const c = Number(cell.dataset.c);
+    cell.classList.toggle('hit', enemyShotsGrid[r][c] === 2);
+    cell.classList.toggle('miss', enemyShotsGrid[r][c] === 3);
+  });
+}
+
+function onShootEnemy(r,c){
+  if(!myTurn) return;
+
+  // already shot
+  if(enemyShotsGrid[r][c] === 2 || enemyShotsGrid[r][c] === 3) return;
+
+  if(enemyShipsGrid[r][c] === 1){
+    enemyShotsGrid[r][c] = 2; // hit
+  }else{
+    enemyShotsGrid[r][c] = 3; // miss
+    myTurn = false;
+    battleStatusR.textContent = 'ход противника...';
+  }
+
+  renderBattleBoards();
+
+  // win?
+  if(isAllSunk(enemyShipsGrid, enemyShotsGrid)){
+    openModal('Победа!', `Ты выиграл у <b>${escapeHtml(currentOpponent)}</b> ✅`);
+    showScreen('lobby');
+    return;
+  }
+
+  if(!myTurn){
+    setTimeout(enemyMove, 550);
+  }
+}
+
+function enemyMove(){
+  // pick random untargeted cell
+  const candidates = [];
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      if(myShotsGrid[r][c] === 0) candidates.push({r,c});
+    }
+  }
+  if(candidates.length === 0) return;
+
+  const pick = candidates[Math.floor(Math.random()*candidates.length)];
+  const {r,c} = pick;
+
+  if(myShipsGrid[r][c] === 1){
+    myShotsGrid[r][c] = 2; // hit
+    battleStatusR.textContent = 'противник попал!';
+    // enemy shoots again (simple)
+    renderBattleBoards();
+    if(isAllSunk(myShipsGrid, myShotsGrid)){
+      openModal('Поражение', `Ты проиграл игроку <b>${escapeHtml(currentOpponent)}</b> ❌`);
+      showScreen('lobby');
+      return;
+    }
+    setTimeout(enemyMove, 500);
+    return;
+  }else{
+    myShotsGrid[r][c] = 3; // miss
+    renderBattleBoards();
+    myTurn = true;
+    battleStatusR.textContent = 'твой ход';
+  }
+}
+
+function isAllSunk(ships, shots){
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      if(ships[r][c] === 1 && shots[r][c] !== 2) return false;
+    }
+  }
+  return true;
+}
+
+function generateEnemyShips(){
+  const grid = makeGrid();
+  const lens = shipSet.slice();
+
+  function canPlace(r,c,len,ori){
+    const cells = [];
+    for(let i=0;i<len;i++){
+      const rr = r + (ori === 'v' ? i : 0);
+      const cc = c + (ori === 'h' ? i : 0);
+      if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) return null;
+      if(grid[rr][cc] === 1) return null;
+      cells.push({r:rr,c:cc});
+    }
+    // no touch
+    for(const cell of cells){
+      for(let dr=-1; dr<=1; dr++){
+        for(let dc=-1; dc<=1; dc++){
+          const rr = cell.r+dr, cc = cell.c+dc;
+          if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) continue;
+          const isPart = cells.some(x => x.r===rr && x.c===cc);
+          if(!isPart && grid[rr][cc] === 1) return null;
+        }
+      }
+    }
+    return cells;
+  }
+
+  for(const len of lens){
+    let placed = false;
+    for(let t=0;t<1200;t++){
+      const ori = Math.random()<0.5 ? 'h' : 'v';
+      const r = Math.floor(Math.random()*SIZE);
+      const c = Math.floor(Math.random()*SIZE);
+      const cells = canPlace(r,c,len,ori);
+      if(cells){
+        cells.forEach(({r,c}) => grid[r][c]=1);
+        placed = true;
+        break;
+      }
+    }
+    if(!placed) return generateEnemyShips();
+  }
+
+  return grid;
+}
+
+// ================= Utils =================
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[m]));
 }
 
-// ===== Init =====
+// ================= Init =================
 (function init(){
   buildAxes();
   buildBoard();
   renderBoard();
   renderFleet();
 
-  // открыть экран по hash, иначе меню
+  // Lobby/chat init only when needed
+
   const h = (location.hash || '#menu').replace('#','');
   if(screens[h]) showScreen(h, false);
   else showScreen('menu', false);
