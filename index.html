@@ -3,147 +3,190 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Сад Мутаций</title>
+  <title>Дирижабль: Экспедиция</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <div class="logo">🌱</div>
+        <div class="logo">🛩️</div>
         <div>
-          <div class="title">Сад Мутаций</div>
+          <div class="title">Дирижабль: Экспедиция</div>
           <div class="subtitle" id="dayHint">День: —</div>
         </div>
       </div>
 
       <div class="stats">
         <div class="stat">
-          <div class="label">Пыльца</div>
-          <div class="value" id="pollen">0</div>
+          <div class="label">Эфир</div>
+          <div class="value"><span id="aether">0</span></div>
         </div>
         <div class="stat">
-          <div class="label">Энергия</div>
-          <div class="value"><span id="energy">0</span>/<span id="energyMax">0</span></div>
+          <div class="label">Топливо</div>
+          <div class="value"><span id="fuel">0</span>/<span id="fuelMax">0</span></div>
         </div>
-        <button class="btn ghost" id="btnSave">💾</button>
-        <button class="btn ghost" id="btnReset" title="Сброс (с подтверждением)">↺</button>
+        <div class="stat">
+          <div class="label">Металл</div>
+          <div class="value"><span id="scrap">0</span></div>
+        </div>
+        <div class="stat">
+          <div class="label">Корпус</div>
+          <div class="value"><span id="hull">0</span>/<span id="hullMax">0</span></div>
+        </div>
+
+        <button class="btn ghost" id="btnSave" title="Сохранить">💾</button>
+        <button class="btn ghost" id="btnReset" title="Сбросить прогресс">↺</button>
       </div>
     </header>
 
     <main class="main">
       <section class="panel">
-        <h2>Действия</h2>
+        <h2>Палуба управления</h2>
 
         <div class="tapZone">
-          <button class="btn big" id="btnTap">💧 Полить (тап)</button>
+          <button class="btn big" id="btnPump">⚙️ Качать давление (тап)</button>
           <div class="tapInfo">
-            Тапы дают <b>энергию</b> и немного <b>пыльцы</b>. Энергию тратим на посадку и скрещивание.
+            Тапы дают <b>эфир</b> (тяга) и иногда <b>металл</b>. Эфир тратим на ускорение в полёте и ремонт.
+          </div>
+        </div>
+
+        <div class="kvGrid">
+          <div class="kv">
+            <div class="label">Давление</div>
+            <div class="value"><span id="pressure">0</span>/<span id="pressureMax">0</span></div>
+          </div>
+          <div class="kv">
+            <div class="label">Скорость</div>
+            <div class="value" id="speedHint">—</div>
+          </div>
+          <div class="kv">
+            <div class="label">Шторм дня</div>
+            <div class="value" id="stormHint">—</div>
+          </div>
+          <div class="kv">
+            <div class="label">Экипаж</div>
+            <div class="value" id="crewHint">—</div>
           </div>
         </div>
 
         <div class="actionsGrid">
-          <button class="btn" id="btnOpenInventory">🎒 Инвентарь</button>
-          <button class="btn" id="btnOpenBreeding">🧬 Скрещивание</button>
+          <button class="btn" id="btnOpenMap">🗺️ Карта</button>
+          <button class="btn" id="btnOpenHangar">🛠️ Ангар</button>
+          <button class="btn" id="btnOpenCrew">👥 Экипаж</button>
           <button class="btn" id="btnOpenLog">📜 Лог</button>
         </div>
 
-        <div class="quest">
-          <div class="questHead">
+        <div class="mission">
+          <div class="missionHead">
             <div>
-              <div class="questTitle">Задание дня</div>
-              <div class="questText" id="questText">—</div>
+              <div class="missionTitle">Текущий рейс</div>
+              <div class="missionText" id="missionText">—</div>
             </div>
-            <div class="questReward">
-              <div class="label">Награда</div>
-              <div class="value" id="questReward">—</div>
+            <div class="missionRight">
+              <div class="label">До прибытия</div>
+              <div class="value" id="eta">—</div>
             </div>
           </div>
-          <div class="questProgress">
-            <div class="bar"><div class="fill" id="questFill"></div></div>
-            <div class="small" id="questProgressText">—</div>
+
+          <div class="missionProgress">
+            <div class="bar"><div class="fill" id="missionFill"></div></div>
+            <div class="small" id="missionMeta">—</div>
           </div>
-          <button class="btn" id="btnClaimQuest" disabled>🏆 Забрать</button>
+
+          <div class="missionBtns">
+            <button class="btn" id="btnBoost" disabled>🚀 Ускорить (эфир)</button>
+            <button class="btn ghost" id="btnRepair">🧰 Ремонт</button>
+          </div>
         </div>
       </section>
 
       <section class="panel grow">
-        <h2>Теплица (6 грядок)</h2>
-        <div class="garden" id="garden"></div>
+        <h2>Карта: маршрут</h2>
+        <div class="route">
+          <div class="routeHead">
+            <div class="routeTitle" id="routeTitle">Зона: —</div>
+            <div class="routeSub muted small" id="routeSub">Выбери узел на карте, чтобы отправиться.</div>
+          </div>
 
-        <div class="hint">
-          Нажми на грядку: посадка/ускорение/сбор. Созревает — собирай пыльцу и семена.
+          <div class="map" id="map"></div>
+
+          <div class="hint">
+            Узлы дают награды, но иногда бьют по корпусу. На шторме дня риск выше — зато добыча жирнее.
+          </div>
         </div>
       </section>
     </main>
 
-    <!-- Inventory Modal -->
-    <div class="modal" id="modalInventory" aria-hidden="true">
+    <!-- Map Modal -->
+    <div class="modal" id="modalMap" aria-hidden="true">
       <div class="modalCard">
         <div class="modalHead">
-          <h3>Инвентарь</h3>
-          <button class="btn ghost" data-close="modalInventory">✕</button>
+          <h3>Карта</h3>
+          <button class="btn ghost" data-close="modalMap">✕</button>
         </div>
 
         <div class="twoCols">
           <div>
-            <h4>Семена</h4>
-            <div class="list" id="seedList"></div>
-            <div class="small muted">Клик по семени — выбрать для посадки.</div>
+            <h4>Выбор узла</h4>
+            <div class="list" id="mapList"></div>
+            <div class="small muted">Клик по узлу — поставить маршрут.</div>
           </div>
-
           <div>
-            <h4>Коллекция</h4>
-            <div class="list" id="collectionList"></div>
-            <div class="small muted">Собирай новые комбинации признаков (цвет/форма/аромат).</div>
+            <h4>Инфо о зоне</h4>
+            <div class="infoBox" id="zoneInfo">—</div>
+            <div class="small muted">Чем дальше зона — тем выше риск и награда.</div>
           </div>
         </div>
 
         <div class="modalFoot">
-          <div class="small muted" id="inventoryHint">—</div>
-          <button class="btn" data-close="modalInventory">Готово</button>
+          <div class="small muted" id="mapHint">—</div>
+          <button class="btn" data-close="modalMap">Готово</button>
         </div>
       </div>
     </div>
 
-    <!-- Breeding Modal -->
-    <div class="modal" id="modalBreeding" aria-hidden="true">
+    <!-- Hangar Modal -->
+    <div class="modal" id="modalHangar" aria-hidden="true">
       <div class="modalCard">
         <div class="modalHead">
-          <h3>Скрещивание</h3>
-          <button class="btn ghost" data-close="modalBreeding">✕</button>
+          <h3>Ангар: улучшения</h3>
+          <button class="btn ghost" data-close="modalHangar">✕</button>
         </div>
 
-        <div class="breedingGrid">
-          <div class="breedBox">
-            <div class="breedTitle">Родитель A</div>
-            <div class="breedPick" id="parentA">Не выбран</div>
-            <div class="small muted">Выбери растение из коллекции</div>
-          </div>
+        <div class="list" id="upgradeList"></div>
 
-          <div class="breedBox">
-            <div class="breedTitle">Родитель B</div>
-            <div class="breedPick" id="parentB">Не выбран</div>
-            <div class="small muted">Выбери другое растение</div>
-          </div>
+        <div class="modalFoot">
+          <div class="small muted" id="hangarHint">—</div>
+          <button class="btn" data-close="modalHangar">Закрыть</button>
+        </div>
+      </div>
+    </div>
 
-          <div class="breedBox">
-            <div class="breedTitle">Стоимость</div>
-            <div class="breedPick"><span id="breedCostEnergy">—</span> энергии + <span id="breedCostPollen">—</span> пыльцы</div>
-            <div class="small muted">Шанс мутации зависит от “мутации дня”.</div>
-          </div>
+    <!-- Crew Modal -->
+    <div class="modal" id="modalCrew" aria-hidden="true">
+      <div class="modalCard">
+        <div class="modalHead">
+          <h3>Экипаж</h3>
+          <button class="btn ghost" data-close="modalCrew">✕</button>
+        </div>
 
-          <div class="breedBox wide">
-            <div class="breedTitle">Выбор из коллекции</div>
-            <div class="list" id="breedCollectionList"></div>
-            <div class="small muted">Клик: выбрать A/B (переключается автоматически).</div>
+        <div class="twoCols">
+          <div>
+            <h4>Доступные специалисты</h4>
+            <div class="list" id="crewList"></div>
+            <div class="small muted">У тебя можно держать ограничение по местам.</div>
+          </div>
+          <div>
+            <h4>Активные места</h4>
+            <div class="list" id="activeCrewList"></div>
+            <div class="small muted">Клик по активному — снять.</div>
           </div>
         </div>
 
         <div class="modalFoot">
-          <div class="small muted" id="breedHint">—</div>
-          <button class="btn" id="btnBreed">🧬 Создать семя</button>
-          <button class="btn ghost" data-close="modalBreeding">Отмена</button>
+          <div class="small muted" id="crewHintModal">—</div>
+          <button class="btn" data-close="modalCrew">Готово</button>
         </div>
       </div>
     </div>
@@ -165,7 +208,7 @@
 
     <footer class="footer">
       <div class="small muted">
-        Советы: копи пыльцу → скрещивай редкие признаки → открывай новые комбинации в коллекции.
+        Подсказка: качай давление → лети в узлы → трать металл на апгрейды → найми экипаж.
       </div>
     </footer>
   </div>
