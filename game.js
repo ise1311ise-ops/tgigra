@@ -1,24 +1,32 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  // ===== TG WebView: реальный vh и авто-масштаб “как SeaBattle” =====
+  // ===== Telegram: нормальный масштаб (портрет/ландшафт) =====
   function fitTelegram() {
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty("--vh", `${vh}px`);
 
-    const baseW = 1050;
-    const baseH = 590;
-
     const vw = window.innerWidth;
     const vhpx = window.innerHeight;
 
-    // SeaBattle на телефоне обычно “вписан по ширине”
+    const portrait = vhpx >= vw;
+    document.body.classList.toggle("portrait", portrait);
+
+    // ВАЖНО:
+    // Портрет — делаем базовый “лист” как телефон, чтобы не ужималось в точку.
+    // Ландшафт — оставляем широкий “лист” как SeaBattle.
+    const baseW = portrait ? 390 : 1050;
+    const baseH = portrait ? 760 : 590;
+
+    document.documentElement.style.setProperty("--baseW", baseW);
+    document.documentElement.style.setProperty("--baseH", baseH);
+
+    // масштаб чтобы лист ВПИСАЛСЯ и при этом был МАКСИМАЛЬНО БОЛЬШИМ
     const scaleByW = vw / baseW;
     const scaleByH = vhpx / baseH;
 
-    // берём минимальный, чтобы не обрезало
+    // небольшой запас чтобы не резало в TG
     const s = Math.min(scaleByW, scaleByH) * 0.995;
-
     document.documentElement.style.setProperty("--scale", s.toFixed(4));
   }
   window.addEventListener("resize", fitTelegram);
@@ -51,7 +59,6 @@
     if (name === "lobby") sheetTitle.textContent = "Игровой зал";
     if (name === "match") sheetTitle.textContent = "Морской бой — онлайн";
 
-    // чат доступен только в лобби
     btnChatTop.style.display = (name === "lobby") ? "inline-block" : "none";
   }
 
@@ -153,10 +160,8 @@
     return Array.from({length:GRID},()=>Array.from({length:GRID},()=>fill));
   }
 
-  // setup grid: 0 empty, 1 ship
   let setupGrid = makeGrid(0);
 
-  // корабли как в классике: 4x1, 3x2, 2x3, 1x4
   const fleet = [
     {len:4, count:1},
     {len:3, count:2},
@@ -170,19 +175,16 @@
   const setupCanvas = $("setupCanvas");
   const sctx = setupCanvas.getContext("2d");
 
-  // ===== Drawing “blue pen” style =====
   function drawBoard(ctx, grid, showShips=true){
     const w = ctx.canvas.width;
     const cell = w / GRID;
 
     ctx.clearRect(0,0,w,w);
 
-    // рамка толстая
     ctx.lineWidth = 6;
     ctx.strokeStyle = "rgba(52,50,168,.85)";
     ctx.strokeRect(3,3,w-6,w-6);
 
-    // тонкая сетка
     ctx.lineWidth = 2;
     ctx.strokeStyle = "rgba(52,50,168,.22)";
     for(let i=1;i<GRID;i++){
@@ -191,7 +193,6 @@
       ctx.beginPath(); ctx.moveTo(0,p); ctx.lineTo(w,p); ctx.stroke();
     }
 
-    // цифры сверху + буквы слева (как на скрине)
     ctx.fillStyle = "rgba(52,50,168,.85)";
     ctx.font = "900 18px system-ui";
     for(let i=0;i<GRID;i++){
@@ -203,7 +204,6 @@
     }
 
     if(showShips){
-      // рисуем корабли “корпусом” в синем цвете
       for(let y=0;y<GRID;y++){
         for(let x=0;x<GRID;x++){
           if(grid[y][x]!==1) continue;
@@ -226,7 +226,6 @@
       for(let i=0;i<len;i++){
         if(setupGrid[y][x+i]===1) return false;
       }
-      // нельзя касаться (8-соседей)
       for(let dy=-1; dy<=1; dy++){
         for(let dx=-1; dx<=len; dx++){
           const nx=x+dx, ny=y+dy;
@@ -263,7 +262,6 @@
     return fleetLeft.every(f => f.left===0);
   }
 
-  // fleet UI (в “как на скрине”: кораблики справа)
   const fleetRow = $("fleetRow");
 
   function renderFleet(){
@@ -298,7 +296,6 @@
     renderFleet();
   }
 
-  // rotate + auto + start
   $("btnRotate").addEventListener("click",()=>{
     horizontal=!horizontal;
     openModal("Поворот", horizontal ? "Горизонтально" : "Вертикально");
@@ -306,7 +303,6 @@
 
   $("btnAuto").addEventListener("click",()=>{
     resetSetup();
-    // простая автогенерация
     for(const f of fleetLeft){
       while(f.left>0){
         let placed=false;
@@ -333,7 +329,6 @@
     renderPlayers();
   });
 
-  // клик по полю расстановки
   setupCanvas.addEventListener("pointerdown",(e)=>{
     const rect = setupCanvas.getBoundingClientRect();
     const px = (e.clientX-rect.left) * (setupCanvas.width/rect.width);
@@ -379,7 +374,7 @@
   const enCtx = enemyCanvas.getContext("2d");
 
   let myGrid = makeGrid(0);
-  let enemyMarks = makeGrid(0); // 0 none, 3 hit, 4 miss
+  let enemyMarks = makeGrid(0);
 
   function cloneShipsFromSetup(){
     const g=makeGrid(0);
@@ -391,7 +386,6 @@
     drawBoard(myCtx, myGrid, true);
     drawBoard(enCtx, makeGrid(0), false);
 
-    // рисуем точки выстрелов на поле врага
     const w = enemyCanvas.width;
     const cell = w/GRID;
 
@@ -426,7 +420,6 @@
   $("btnBackToLobby").addEventListener("click",()=>show("lobby"));
   $("btnRestart").addEventListener("click",()=>startMatch("user1"));
 
-  // выстрел по полю врага (макет)
   enemyCanvas.addEventListener("pointerdown",(e)=>{
     const rect = enemyCanvas.getBoundingClientRect();
     const px = (e.clientX-rect.left) * (enemyCanvas.width/rect.width);
@@ -437,7 +430,6 @@
     if(x<0||y<0||x>=GRID||y>=GRID) return;
     if(enemyMarks[y][x]!==0) return;
 
-    // просто псевдо-рандом попадания
     enemyMarks[y][x] = (Math.random()<0.28) ? 3 : 4;
     drawMatchBoards();
   });
@@ -448,7 +440,6 @@
   resetSetup();
   renderPlayers();
 
-  // на мобильных запрещаем скролл страницы, но оставляем скролл чату
   document.addEventListener("touchmove",(e)=>{
     const inChat = e.target.closest(".chatBody");
     if(!inChat && !chat.classList.contains("show") && !modal.classList.contains("show")){
