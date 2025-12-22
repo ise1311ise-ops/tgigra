@@ -1,520 +1,410 @@
-/* Морской бой — каркас под будущий сервер (WebSocket).
-   Сейчас: локальные заглушки (mock) для лобби, приглашений и боя. */
+// Bricks vs Balls — минимальная полноценная версия под Telegram WebApp
+// Управление: потяни/наведи и отпусти — выстрел. Раунд: блоки спускаются вниз.
 
-const tg = window.Telegram?.WebApp;
+(() => {
+  // --- Telegram safe init ---
+  document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+  document.body.style.overflow = "hidden";
 
-function $(id){ return document.getElementById(id); }
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
 
-const Screens = {
-  menu: $("screenMenu"),
-  setup: $("screenSetup"),
-  lobby: $("screenLobby"),
-  battle: $("screenBattle"),
-};
+  const uiBalls = document.getElementById("ballsCount");
+  const uiRound = document.getElementById("round");
+  const hint = document.getElementById("hint");
 
-const UI = {
-  back: $("btnBack"),
-
-  btnOnline: $("btnOnline"),
-  btnSettings: $("btnSettings"),
-  btnSupport: $("btnSupport"),
-  btnShare: $("btnShare"),
-
-  myPlacementGrid: $("myPlacementGrid"),
-  shipTray: $("shipTray"),
-  btnNextToLobby: $("btnNextToLobby"),
-  btnAutoPlace: $("btnAutoPlace"),
-  btnClear: $("btnClear"),
-
-  playersList: $("playersList"),
-  btnToggleChat: $("btnToggleChat"),
-  btnLeaveLobby: $("btnLeaveLobby"),
-  lobbyInfo: $("lobbyInfo"),
-
-  chatWrap: $("chatWrap"),
-  chatMessages: $("chatMessages"),
-  chatText: $("chatText"),
-  chatSend: $("chatSend"),
-
-  myBattleGrid: $("myBattleGrid"),
-  enemyBattleGrid: $("enemyBattleGrid"),
-  battleStatusLeft: $("battleStatusLeft"),
-  battleStatusRight: $("battleStatusRight"),
-  btnExitBattle: $("btnExitBattle"),
-
-  modal: $("modal"),
-  modalText: $("modalText"),
-  modalOk: $("modalOk"),
-};
-
-const GRID = 10;
-
-// Стандартный набор кораблей: 1×4, 2×3, 3×2, 4×1
-const SHIPS = [
-  { id:"s4", len:4 },
-  { id:"s3a", len:3 },
-  { id:"s3b", len:3 },
-  { id:"s2a", len:2 },
-  { id:"s2b", len:2 },
-  { id:"s2c", len:2 },
-  { id:"s1a", len:1 },
-  { id:"s1b", len:1 },
-  { id:"s1c", len:1 },
-  { id:"s1d", len:1 },
-];
-
-const App = {
-  screen: "menu",
-
-  // placement
-  placement: {
-    occupied: new Map(), // key "x,y" -> shipId
-    ships: new Map(),    // shipId -> {x,y,dir,len}
-    draggingShipId: null,
-  },
-
-  // lobby
-  lobby: {
-    players: [],
-    chatOpen: false,
-  },
-
-  // battle (заглушки)
-  battle: {
-    myShots: new Set(),     // key "x,y" on enemy
-    enemyShots: new Set(),  // key "x,y" on me
+  // --- HiDPI resize ---
+  let W = 0, H = 0, dpr = 1;
+  function resize() {
+    dpr = Math.max(1, window.devicePixelRatio || 1);
+    W = window.innerWidth;
+    H = window.innerHeight - 44; // topbar approx height; canvas flex will set actual size in CSS, but we keep logic simple
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor((window.innerHeight - 44) * dpr);
+    canvas.style.width = W + "px";
+    canvas.style.height = (window.innerHeight - 44) + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
-};
+  window.addEventListener("resize", resize);
+  resize();
 
-// ---------- helpers ----------
-function keyXY(x,y){ return `${x},${y}`; }
-function inside(x,y){ return x>=0 && x<GRID && y>=0 && y<GRID; }
+  // --- Game constants ---
+  const GRID_COLS = 8;
+  const GRID_ROWS_VISIBLE = 10;
+  const TOP_MARGIN = 12;
+  const SIDE_MARGIN = 12;
+  const CELL_GAP = 6;
+  const BALL_RADIUS = 5;
+  const BALL_SPEED = 720; // px/sec
+  const SHOT_INTERVAL = 40; // ms между шарами в очереди
+  const BOUNCE_EPS = 0.001;
+  const MIN_AIM_ANGLE = -Math.PI + 0.2; // ограничение чтоб не стрелять в совсем горизонт
+  const MAX_AIM_ANGLE = -0.2;
 
-function showModal(text){
-  UI.modalText.textContent = text;
-  UI.modal.classList.remove("hidden");
-}
-UI.modalOk.onclick = () => UI.modal.classList.add("hidden");
-
-function setScreen(name){
-  App.screen = name;
-  Object.values(Screens).forEach(s => s.classList.remove("active"));
-  Screens[name].classList.add("active");
-
-  // back button logic
-  if (name === "menu") {
-    UI.back.classList.add("hidden");
-  } else {
-    UI.back.classList.remove("hidden");
+  let cellSize = 0;
+  function computeCellSize() {
+    const usableW = W - SIDE_MARGIN * 2;
+    cellSize = (usableW - (GRID_COLS - 1) * CELL_GAP) / GRID_COLS;
   }
-}
+  computeCellSize();
 
-// ---------- init Telegram WebApp ----------
-function initTelegram(){
-  try{
-    if (tg){
-      tg.ready();
-      tg.expand();
-      // Можно выставить цвет, если надо
-      // tg.setHeaderColor?.("#101a2e");
-    }
-  }catch(e){}
-}
+  // --- State ---
+  let round = 1;
+  let ballsTotal = 1;
+  let isAiming = false;
+  let isShooting = false;
+  let aimStart = null;
+  let aimEnd = null;
+  let lastReturnX = null;
 
-// ---------- grid render ----------
-function buildGrid(container, opts){
-  container.innerHTML = "";
-  for (let y=0; y<GRID; y++){
-    for (let x=0; x<GRID; x++){
-      const c = document.createElement("div");
-      c.className = "cell";
-      c.dataset.x = String(x);
-      c.dataset.y = String(y);
-
-      if (opts?.droppable){
-        c.addEventListener("dragover", (e)=> onDragOverCell(e, c));
-        c.addEventListener("dragleave", ()=> { c.classList.remove("drop-ok","drop-bad"); });
-        c.addEventListener("drop", (e)=> onDropOnCell(e, c));
-      }
-
-      if (opts?.shootable){
-        c.addEventListener("click", ()=> onShootCell(c));
-      }
-
-      container.appendChild(c);
-    }
-  }
-}
-
-function cellEl(container, x, y){
-  return container.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
-}
-
-// ---------- ships tray ----------
-function renderShipTray(){
-  UI.shipTray.innerHTML = "";
-  for (const s of SHIPS){
-    const placed = App.placement.ships.has(s.id);
-    const el = document.createElement("div");
-    el.className = `ship horizontal ${placed ? "placed":""}`;
-    el.draggable = !placed;
-    el.dataset.shipId = s.id;
-    el.title = `Корабль ${s.len}`;
-
-    el.addEventListener("dragstart", () => {
-      if (placed) return;
-      App.placement.draggingShipId = s.id;
-    });
-
-    for (let i=0;i<s.len;i++){
-      const p = document.createElement("div");
-      p.className = "ship-cell";
-      el.appendChild(p);
-    }
-    UI.shipTray.appendChild(el);
-  }
-}
-
-function renderPlacementShipsOnGrid(){
-  // очистим визуал
-  UI.myPlacementGrid.querySelectorAll(".cell").forEach(c=>{
-    c.style.background = "";
-    c.classList.remove("ship-on-grid");
-    c.onclick = null;
-  });
-
-  // нарисуем корабли
-  for (const [shipId, st] of App.placement.ships.entries()){
-    const coords = shipCells(st.x, st.y, st.dir, st.len);
-    for (const [x,y] of coords){
-      const c = cellEl(UI.myPlacementGrid, x, y);
-      if (!c) continue;
-      c.style.background = "rgba(78,161,255,.38)";
-      c.style.borderColor = "rgba(78,161,255,.55)";
-      // клик по любой части корабля — повернуть вокруг его (x,y)
-      c.onclick = ()=> rotateShip(shipId);
-    }
-  }
-}
-
-function shipCells(x,y,dir,len){
-  const out = [];
-  for (let i=0;i<len;i++){
-    const xx = dir === "H" ? x+i : x;
-    const yy = dir === "V" ? y+i : y;
-    out.push([xx,yy]);
-  }
-  return out;
-}
-
-function canPlaceShip(shipId, x,y,dir,len){
-  const coords = shipCells(x,y,dir,len);
-  // внутри поля
-  if (!coords.every(([xx,yy])=> inside(xx,yy))) return false;
-
-  // нельзя пересекаться
-  for (const [xx,yy] of coords){
-    const occ = App.placement.occupied.get(keyXY(xx,yy));
-    if (occ && occ !== shipId) return false;
+  // spawn point at bottom
+  function getShooterPos() {
+    const x = lastReturnX ?? (W / 2);
+    const y = (window.innerHeight - 44) - 16;
+    return { x, y };
   }
 
-  // нельзя касаться (включая диагонали)
-  const forbidden = new Set();
-  for (const [xx,yy] of coords){
-    for (let dy=-1; dy<=1; dy++){
-      for (let dx=-1; dx<=1; dx++){
-        const nx = xx+dx, ny = yy+dy;
-        if (inside(nx,ny)) forbidden.add(keyXY(nx,ny));
+  // blocks: {col,row,hp}
+  let blocks = [];
+  let gems = []; // {col,row} -> gives +1 ball when hit (collected by passing through)
+
+  function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+
+  function cellToRect(col, row) {
+    const x = SIDE_MARGIN + col * (cellSize + CELL_GAP);
+    const y = TOP_MARGIN + row * (cellSize + CELL_GAP);
+    return { x, y, w: cellSize, h: cellSize };
+  }
+
+  function spawnNewRow() {
+    // шанс блока в колонке
+    const chance = 0.55;
+    const row = 0;
+    for (let col = 0; col < GRID_COLS; col++) {
+      if (Math.random() < chance) {
+        blocks.push({ col, row, hp: round * 2 + randInt(0, round) });
+      } else if (Math.random() < 0.18) {
+        gems.push({ col, row });
       }
     }
   }
 
-  for (const k of forbidden){
-    const occ = App.placement.occupied.get(k);
-    if (occ && occ !== shipId) {
-      // если это “наш же корабль” и мы его двигаем — допустимо
-      // но это сложно отличить по forbidden, поэтому разрешим только если этот occ==shipId
-      if (occ !== shipId) return false;
-    }
+  function shiftDown() {
+    for (const b of blocks) b.row += 1;
+    for (const g of gems) g.row += 1;
   }
 
-  return true;
-}
-
-function placeShip(shipId, x,y,dir){
-  const ship = SHIPS.find(s=>s.id===shipId);
-  if (!ship) return false;
-
-  // если корабль уже стоял — сначала уберём следы
-  removeShip(shipId);
-
-  if (!canPlaceShip(shipId, x,y,dir,ship.len)){
+  function checkLose() {
+    // если блок дошёл до нижней границы сетки (видимой) — проигрыш
+    const maxRow = Math.max(-1, ...blocks.map(b => b.row));
+    if (maxRow >= GRID_ROWS_VISIBLE) return true;
     return false;
   }
 
-  const st = { x,y,dir,len:ship.len };
-  App.placement.ships.set(shipId, st);
-
-  for (const [xx,yy] of shipCells(x,y,dir,ship.len)){
-    App.placement.occupied.set(keyXY(xx,yy), shipId);
+  function resetGame() {
+    round = 1;
+    ballsTotal = 1;
+    blocks = [];
+    gems = [];
+    lastReturnX = null;
+    spawnNewRow();
+    syncUI();
   }
 
-  renderShipTray();
-  renderPlacementShipsOnGrid();
-  updateNextButton();
-  return true;
-}
-
-function removeShip(shipId){
-  const prev = App.placement.ships.get(shipId);
-  if (!prev) return;
-  for (const [xx,yy] of shipCells(prev.x, prev.y, prev.dir, prev.len)){
-    const k = keyXY(xx,yy);
-    if (App.placement.occupied.get(k) === shipId) App.placement.occupied.delete(k);
+  function syncUI() {
+    uiBalls.textContent = "x" + ballsTotal;
+    uiRound.textContent = "Round " + round;
   }
-  App.placement.ships.delete(shipId);
-}
 
-function rotateShip(shipId){
-  const st = App.placement.ships.get(shipId);
-  if (!st) return;
-  const newDir = st.dir === "H" ? "V" : "H";
-  // попробуем повернуть на том же якоре (x,y)
-  const ok = placeShip(shipId, st.x, st.y, newDir);
-  if (!ok){
-    // откат (вернём как было)
-    placeShip(shipId, st.x, st.y, st.dir);
-    showModal("Нельзя повернуть: мешают границы или другие корабли.");
-  }
-}
+  // --- Ball simulation ---
+  let balls = []; // active balls {x,y,vx,vy,alive,returned}
+  let ballsLaunched = 0;
+  let ballsReturned = 0;
+  let shotAngle = -Math.PI / 2;
 
-function updateNextButton(){
-  UI.btnNextToLobby.disabled = App.placement.ships.size !== SHIPS.length;
-}
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
-// ---------- drag/drop ----------
-function onDragOverCell(e, cell){
-  e.preventDefault();
-  const shipId = App.placement.draggingShipId;
-  if (!shipId) return;
+  function startShot(angle) {
+    if (isShooting) return;
+    isShooting = true;
+    hint.style.opacity = "0";
+    balls = [];
+    ballsLaunched = 0;
+    ballsReturned = 0;
+    shotAngle = angle;
 
-  const ship = SHIPS.find(s=>s.id===shipId);
-  const x = Number(cell.dataset.x);
-  const y = Number(cell.dataset.y);
+    const { x, y } = getShooterPos();
 
-  // по умолчанию ставим горизонтально
-  const ok = canPlaceShip(shipId, x,y,"H", ship.len);
-  cell.classList.toggle("drop-ok", ok);
-  cell.classList.toggle("drop-bad", !ok);
-}
-
-function onDropOnCell(e, cell){
-  e.preventDefault();
-  cell.classList.remove("drop-ok","drop-bad");
-
-  const shipId = App.placement.draggingShipId;
-  App.placement.draggingShipId = null;
-  if (!shipId) return;
-
-  const ship = SHIPS.find(s=>s.id===shipId);
-  const x = Number(cell.dataset.x);
-  const y = Number(cell.dataset.y);
-
-  const ok = placeShip(shipId, x,y,"H");
-  if (!ok) showModal("Нельзя поставить сюда корабль.");
-}
-
-function clearPlacement(){
-  App.placement.occupied.clear();
-  App.placement.ships.clear();
-  renderShipTray();
-  renderPlacementShipsOnGrid();
-  updateNextButton();
-}
-
-function autoPlace(){
-  clearPlacement();
-
-  for (const s of SHIPS){
-    let placed = false;
-    for (let tries=0; tries<800 && !placed; tries++){
-      const dir = Math.random() < 0.5 ? "H":"V";
-      const x = Math.floor(Math.random()*GRID);
-      const y = Math.floor(Math.random()*GRID);
-      if (canPlaceShip(s.id, x,y,dir,s.len)){
-        placeShip(s.id, x,y,dir);
-        placed = true;
+    const timer = setInterval(() => {
+      if (ballsLaunched >= ballsTotal) {
+        clearInterval(timer);
+        return;
       }
-    }
-    if (!placed){
-      clearPlacement();
-      showModal("Не смог расставить автоматически. Попробуй ещё раз.");
-      return;
+      const vx = Math.cos(shotAngle) * BALL_SPEED;
+      const vy = Math.sin(shotAngle) * BALL_SPEED;
+      balls.push({ x, y, vx, vy, alive: true });
+      ballsLaunched++;
+    }, SHOT_INTERVAL);
+  }
+
+  function endRoundIfDone() {
+    if (!isShooting) return;
+    if (ballsReturned >= ballsTotal) {
+      // раунд завершён
+      isShooting = false;
+      round += 1;
+
+      // сдвигаем блоки вниз и добавляем новый ряд
+      shiftDown();
+      spawnNewRow();
+
+      // удаляем всё, что вышло за видимую область сверху? не нужно
+      // проверка проигрыша
+      if (checkLose()) {
+        // простой restart
+        hint.textContent = "Проигрыш :( Нажми и стреляй, чтобы начать заново";
+        hint.style.opacity = "1";
+        resetGame();
+        return;
+      }
+
+      syncUI();
     }
   }
-}
 
-// ---------- lobby (mock) ----------
-function lobbyMockPlayers(){
-  // ЗАГЛУШКА: потом будет приходить с сервера
-  App.lobby.players = [
-    { id:"u101", name:"Капитан_Волк", rating: 1240 },
-    { id:"u102", name:"SeaFox", rating: 980 },
-    { id:"u103", name:"Адмирал_Синий", rating: 1435 },
-    { id:"u104", name:"Torpedo", rating: 1110 },
-  ];
-  renderPlayers();
-}
-
-function renderPlayers(){
-  UI.playersList.innerHTML = "";
-  for (const p of App.lobby.players){
-    const el = document.createElement("div");
-    el.className = "player";
-    el.innerHTML = `<strong>${escapeHtml(p.name)}</strong><small>Рейтинг: ${p.rating}</small>`;
-    el.onclick = ()=> invitePlayerMock(p);
-    UI.playersList.appendChild(el);
+  function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
+    const nearestX = clamp(cx, rx, rx + rw);
+    const nearestY = clamp(cy, ry, ry + rh);
+    const dx = cx - nearestX;
+    const dy = cy - nearestY;
+    return (dx * dx + dy * dy) <= r * r;
   }
-}
 
-function invitePlayerMock(player){
-  // ЗАГЛУШКА: replace with server invite message
-  UI.lobbyInfo.textContent = `Приглашение отправлено игроку ${player.name}...`;
+  function reflectBallFromRect(ball, rect) {
+    // определяем сторону удара по глубине проникновения (простая эвристика)
+    const cx = ball.x;
+    const cy = ball.y;
 
-  // "второй пользователь одобрил"
-  setTimeout(()=>{
-    const accepted = true; // можно рандом сделать
-    if (!accepted){
-      UI.lobbyInfo.textContent = `${player.name} отклонил приглашение.`;
-      return;
+    const left = Math.abs(cx - rect.x);
+    const right = Math.abs(cx - (rect.x + rect.w));
+    const top = Math.abs(cy - rect.y);
+    const bottom = Math.abs(cy - (rect.y + rect.h));
+    const minSide = Math.min(left, right, top, bottom);
+
+    if (minSide === left || minSide === right) {
+      ball.vx *= -1;
+      ball.x += Math.sign(ball.vx) * BOUNCE_EPS;
+    } else {
+      ball.vy *= -1;
+      ball.y += Math.sign(ball.vy) * BOUNCE_EPS;
+    }
+  }
+
+  function update(dt) {
+    computeCellSize();
+
+    // прицеливание
+    if (!isShooting && isAiming && aimStart && aimEnd) {
+      // ничего
     }
 
-    UI.lobbyInfo.textContent = `${player.name} принял приглашение. Начинаем бой!`;
-    startBattleMock(player);
-  }, 900);
-}
+    // двигаем шары
+    const playH = window.innerHeight - 44;
+    for (const ball of balls) {
+      if (!ball.alive) continue;
 
-function toggleChat(){
-  App.lobby.chatOpen = !App.lobby.chatOpen;
-  UI.chatWrap.classList.toggle("hidden", !App.lobby.chatOpen);
-}
+      ball.x += ball.vx * dt;
+      ball.y += ball.vy * dt;
 
-function chatAddMessage(author, text){
-  const el = document.createElement("div");
-  el.className = "msg";
-  el.innerHTML = `<div class="meta">${escapeHtml(author)}</div><div>${escapeHtml(text)}</div>`;
-  UI.chatMessages.appendChild(el);
-  UI.chatMessages.scrollTop = UI.chatMessages.scrollHeight;
-}
+      // стены
+      if (ball.x - BALL_RADIUS <= 0) { ball.x = BALL_RADIUS; ball.vx *= -1; }
+      if (ball.x + BALL_RADIUS >= W) { ball.x = W - BALL_RADIUS; ball.vx *= -1; }
+      if (ball.y - BALL_RADIUS <= 0) { ball.y = BALL_RADIUS; ball.vy *= -1; }
 
-function sendChat(){
-  const t = UI.chatText.value.trim();
-  if (!t) return;
-  UI.chatText.value = "";
+      // блоки
+      for (let i = blocks.length - 1; i >= 0; i--) {
+        const b = blocks[i];
+        const rect = cellToRect(b.col, b.row);
+        if (circleRectCollision(ball.x, ball.y, BALL_RADIUS, rect.x, rect.y, rect.w, rect.h)) {
+          b.hp -= 1;
+          reflectBallFromRect(ball, rect);
+          if (b.hp <= 0) blocks.splice(i, 1);
+          break;
+        }
+      }
 
-  // ЗАГЛУШКА: потом отправка на сервер
-  chatAddMessage("Ты", t);
+      // бонусы (гемы)
+      for (let i = gems.length - 1; i >= 0; i--) {
+        const g = gems[i];
+        const rect = cellToRect(g.col, g.row);
+        if (circleRectCollision(ball.x, ball.y, BALL_RADIUS, rect.x, rect.y, rect.w, rect.h)) {
+          gems.splice(i, 1);
+          ballsTotal += 1;
+          syncUI();
+          break;
+        }
+      }
 
-  // ответ-эхо
-  setTimeout(()=> chatAddMessage("Система", "Сообщение доставлено (mock)."), 350);
-}
+      // низ: возвращение
+      if (ball.y + BALL_RADIUS >= playH) {
+        ball.alive = false;
+        ballsReturned += 1;
 
-// ---------- battle ----------
-function startBattleMock(opponent){
-  // Подготовим поля боя
-  buildGrid(UI.myBattleGrid, { droppable:false, shootable:false });
-  buildGrid(UI.enemyBattleGrid, { droppable:false, shootable:true });
+        // фиксируем точку возврата по первому шару
+        if (lastReturnX === null) lastReturnX = clamp(ball.x, 16, W - 16);
 
-  // Рендер своих кораблей на левом поле
-  for (const [shipId, st] of App.placement.ships.entries()){
-    for (const [x,y] of shipCells(st.x, st.y, st.dir, st.len)){
-      const c = cellEl(UI.myBattleGrid, x,y);
-      if (c){
-        c.style.background = "rgba(78,161,255,.38)";
-        c.style.borderColor = "rgba(78,161,255,.55)";
+        endRoundIfDone();
       }
     }
   }
 
-  App.battle.myShots.clear();
-  App.battle.enemyShots.clear();
+  function drawAimLine() {
+    if (isShooting) return;
+    if (!isAiming || !aimStart || !aimEnd) return;
 
-  UI.battleStatusLeft.textContent = `Противник: ${opponent.name}`;
-  UI.battleStatusRight.textContent = `Твой ход (mock).`;
+    const shooter = getShooterPos();
+    const dx = aimEnd.x - aimStart.x;
+    const dy = aimEnd.y - aimStart.y;
 
-  setScreen("battle");
-}
+    // тянем “назад” чтобы стрелять “вверх”
+    let ang = Math.atan2(dy, dx) + Math.PI; // разворачиваем
+    ang = clamp(ang, MIN_AIM_ANGLE, MAX_AIM_ANGLE);
 
-function onShootCell(cell){
-  const x = Number(cell.dataset.x);
-  const y = Number(cell.dataset.y);
-  const k = keyXY(x,y);
+    // пунктирная линия
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.85)";
+    ctx.setLineDash([6, 8]);
+    ctx.lineWidth = 2;
 
-  if (App.battle.myShots.has(k)) return;
+    ctx.beginPath();
+    ctx.moveTo(shooter.x, shooter.y);
+    ctx.lineTo(shooter.x + Math.cos(ang) * 800, shooter.y + Math.sin(ang) * 800);
+    ctx.stroke();
+    ctx.restore();
+  }
 
-  // ЗАГЛУШКА попадания: рандом
-  const hit = Math.random() < 0.25;
-  App.battle.myShots.add(k);
-  cell.classList.add(hit ? "shot-hit" : "shot-miss");
+  function draw() {
+    const playH = window.innerHeight - 44;
 
-  // TODO SERVER:
-  // send({type:"shot", x, y}) и ждать ответа hit/miss + чей ход
+    // фон
+    ctx.clearRect(0, 0, W, playH);
+    ctx.fillStyle = "#0b1020";
+    ctx.fillRect(0, 0, W, playH);
 
-  UI.battleStatusRight.textContent = hit ? "Попадание! (mock)" : "Мимо. (mock)";
-}
+    // сетка блоков
+    for (const b of blocks) {
+      const r = cellToRect(b.col, b.row);
+      // блок
+      ctx.fillStyle = "rgba(72, 120, 255, 0.9)";
+      ctx.fillRect(r.x, r.y, r.w, r.h);
 
-// ---------- menu actions ----------
-UI.btnOnline.onclick = () => {
-  setScreen("setup");
-  buildGrid(UI.myPlacementGrid, { droppable:true, shootable:false });
-  renderShipTray();
-  renderPlacementShipsOnGrid();
-  updateNextButton();
-};
+      // hp
+      ctx.fillStyle = "white";
+      ctx.font = "700 16px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(b.hp), r.x + r.w / 2, r.y + r.h / 2);
+    }
 
-UI.btnSettings.onclick = () => showModal("Настройки пока в разработке.");
-UI.btnSupport.onclick = () => showModal("Поддержка: добавим позже (ссылка/форма).");
-UI.btnShare.onclick = async () => {
-  // В Telegram можно tg.shareMessage? Обычно шарят ссылку на бота/miniapp
-  showModal("Поделиться: сюда добавим логику шаринга (Telegram/Web Share).");
-};
+    // gems
+    for (const g of gems) {
+      const r = cellToRect(g.col, g.row);
+      const cx = r.x + r.w / 2;
+      const cy = r.y + r.h / 2;
+      ctx.fillStyle = "rgba(255, 64, 180, 0.95)";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 12);
+      ctx.lineTo(cx + 12, cy);
+      ctx.lineTo(cx, cy + 14);
+      ctx.lineTo(cx - 12, cy);
+      ctx.closePath();
+      ctx.fill();
 
-UI.btnAutoPlace.onclick = autoPlace;
-UI.btnClear.onclick = clearPlacement;
+      ctx.fillStyle = "white";
+      ctx.font = "800 12px system-ui";
+      ctx.fillText("+1", cx, cy + 26);
+    }
 
-UI.btnNextToLobby.onclick = () => {
-  setScreen("lobby");
-  UI.lobbyInfo.textContent = "Подключение к комнате... (mock)";
-  lobbyMockPlayers();
+    // прицел
+    drawAimLine();
 
-  // ЗАГЛУШКА подключения
-  setTimeout(()=> UI.lobbyInfo.textContent = "В комнате. Выбирай игрока слева для приглашения 1v1.", 400);
-};
+    // shooter
+    const shooter = getShooterPos();
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath();
+    ctx.arc(shooter.x, shooter.y, 8, 0, Math.PI * 2);
+    ctx.fill();
 
-UI.btnToggleChat.onclick = toggleChat;
-UI.chatSend.onclick = sendChat;
-UI.chatText.addEventListener("keydown", (e)=>{ if (e.key==="Enter") sendChat(); });
+    // шары
+    for (const ball of balls) {
+      if (!ball.alive) continue;
+      ctx.fillStyle = "rgba(255, 230, 80, 0.95)";
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 
-UI.btnLeaveLobby.onclick = () => setScreen("menu");
-UI.btnExitBattle.onclick = () => setScreen("menu");
+  // --- Input ---
+  function getPosFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    if (e.touches && e.touches[0]) {
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    }
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
 
-UI.back.onclick = () => {
-  // простая логика “назад”
-  if (App.screen === "setup") setScreen("menu");
-  else if (App.screen === "lobby") setScreen("setup");
-  else if (App.screen === "battle") setScreen("menu");
-};
+  function onDown(e) {
+    if (isShooting) return;
+    isAiming = true;
+    const p = getPosFromEvent(e);
+    aimStart = p;
+    aimEnd = p;
+  }
 
-// ---------- util ----------
-function escapeHtml(s){
-  return String(s)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
+  function onMove(e) {
+    if (!isAiming) return;
+    aimEnd = getPosFromEvent(e);
+  }
 
-// ---------- start ----------
-initTelegram();
-setScreen("menu");
+  function onUp(e) {
+    if (!isAiming) return;
+    isAiming = false;
+
+    const shooter = getShooterPos();
+    const dx = (aimEnd?.x ?? shooter.x) - (aimStart?.x ?? shooter.x);
+    const dy = (aimEnd?.y ?? shooter.y) - (aimStart?.y ?? shooter.y);
+
+    let ang = Math.atan2(dy, dx) + Math.PI;
+    ang = clamp(ang, MIN_AIM_ANGLE, MAX_AIM_ANGLE);
+
+    aimStart = null;
+    aimEnd = null;
+
+    startShot(ang);
+  }
+
+  canvas.addEventListener("mousedown", onDown);
+  canvas.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+
+  canvas.addEventListener("touchstart", onDown, { passive: false });
+  canvas.addEventListener("touchmove", onMove, { passive: false });
+  window.addEventListener("touchend", onUp, { passive: false });
+
+  // --- Loop ---
+  let lastT = performance.now();
+  function loop(t) {
+    const dt = Math.min(0.033, (t - lastT) / 1000);
+    lastT = t;
+
+    update(dt);
+    draw();
+
+    requestAnimationFrame(loop);
+  }
+
+  // старт
+  resetGame();
+  requestAnimationFrame(loop);
+})();
