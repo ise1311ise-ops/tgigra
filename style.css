@@ -1,285 +1,367 @@
 :root{
-  --bg1:#0a0f24;
-  --bg2:#0b1638;
-  --glass: rgba(255,255,255,.06);
-  --glass2: rgba(255,255,255,.10);
-  --stroke: rgba(160,190,255,.26);
-  --text: rgba(235,242,255,.92);
-  --muted: rgba(235,242,255,.62);
-  --accent: rgba(140,170,255,.75);
+  --ink: #3432a8;
+  --ink2:#2b2a86;
+  --paper:#fbfbfd;
 
-  /* реальная высота Telegram WebView */
-  --vh: 1vh;
+  --grid1: rgba(42, 120, 120, .18);
+  --grid2: rgba(42, 120, 120, .08);
 
-  /* масштаб, чтобы всё влезло */
-  --scale: 1;
-
-  /* базовый дизайн (под него считаем масштаб) */
-  --baseW: 980;
-  --baseH: 680;
-
-  /* safe-area */
+  /* TG safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
+
+  /* реальный vh для Telegram */
+  --vh: 1vh;
+
+  /* авто-масштаб */
+  --scale: 1;
+
+  /* “как SeaBattle” — широкий лист */
+  --baseW: 1050;
+  --baseH: 590;
 }
 
 *{ box-sizing:border-box; }
 html,body{
-  margin:0;
-  padding:0;
-  width:100%;
-  height:100%;
+  margin:0; padding:0;
+  width:100%; height:100%;
   overflow:hidden; /* НЕТ СКРОЛЛА */
-  background: radial-gradient(1200px 800px at 20% 10%, #142458 0%, var(--bg1) 55%, #070b18 100%);
-  color: var(--text);
+  background:#000; /* вокруг листа */
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
 }
 
-.viewport{
-  height: calc(var(--vh) * 100);
+.tgViewport{
   width:100vw;
+  height: calc(var(--vh) * 100);
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
   display:flex;
   align-items:center;
   justify-content:center;
-  padding-top: var(--sat);
-  padding-bottom: var(--sab);
 }
 
-.scaleRoot{
+.paperApp{
   width: calc(var(--baseW) * 1px);
   height: calc(var(--baseH) * 1px);
   transform: scale(var(--scale));
   transform-origin: top center;
 }
 
-/* TOPBAR */
-.topbar{
-  height: 68px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding: 10px 14px;
-  border-radius: 22px;
-  margin: 12px 12px 10px 12px;
-  background: linear-gradient(180deg, rgba(10,15,36,.74), rgba(10,15,36,.50));
-  border: 1px solid var(--stroke);
-  box-shadow: 0 18px 45px rgba(0,0,0,.35);
-}
-.topTitle{
-  font-weight: 800;
-  letter-spacing: .2px;
-  font-size: 22px;
-  text-align:center;
-  flex:1;
-}
-.topRight{ display:flex; gap:10px; }
-.iconBtn{
-  width: 54px;
-  height: 48px;
-  border-radius: 16px;
-  border: 1px solid var(--stroke);
-  background: rgba(255,255,255,.06);
-  color: var(--text);
-  font-size: 20px;
-}
-
-.stage{
-  height: calc(var(--baseH) * 1px - 100px);
-  padding: 0 12px 12px 12px;
-}
-
-/* Screens */
-.screen{ display:none; height:100%; }
-.screen.active{ display:block; }
-
-/* Window */
-.window{
+/* сам лист в клетку */
+.paperSheet{
+  width:100%;
   height:100%;
-  border-radius: 28px;
-  border: 1px solid var(--stroke);
-  background: rgba(255,255,255,.04);
-  box-shadow: 0 24px 70px rgba(0,0,0,.35);
+  position:relative;
+  background:
+    linear-gradient(to right, var(--grid2) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid2) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid1) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid1) 1px, transparent 1px),
+    var(--paper);
+  background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px, auto;
+  border-radius: 0; /* как на скрине — прямоугольник */
   overflow:hidden;
 }
-.windowHead{
+
+/* верхняя строка */
+.sheetTop{
+  height: 48px;
+  padding: 6px 10px;
   display:flex;
-  justify-content:space-between;
   align-items:center;
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(160,190,255,.16);
-  background: rgba(255,255,255,.03);
+  justify-content:space-between;
 }
-.headLeft .h1{
-  font-size: 26px;
+.sheetTitle{
+  color: var(--ink2);
+  font-weight:900;
+  font-size: 18px;
+  letter-spacing:.2px;
+}
+.sheetTopRight{ display:flex; gap:8px; }
+
+.iconBtn{
+  width: 44px;
+  height: 34px;
+  border-radius: 8px;
+  border: 2px solid rgba(52,50,168,.35);
+  background: rgba(255,255,255,.65);
+  color: var(--ink2);
   font-weight: 900;
-}
-.hint{ color: var(--muted); font-size: 14px; margin-top:4px; }
-.headRight{ display:flex; gap:10px; flex-wrap:nowrap; }
-
-.windowBody{
-  height: calc(100% - 70px);
-  padding: 14px;
+  font-size: 18px;
 }
 
-/* Buttons */
-.pill{
-  padding: 10px 14px;
+/* экраны */
+.screens{
+  height: calc(100% - 48px);
+  position:relative;
+}
+.screen{
+  position:absolute;
+  inset:0;
+  display:none;
+}
+.screen.active{ display:block; }
+
+.screenCaption{
+  position:absolute;
+  top: 12px;
+  left:0; right:0;
+  text-align:center;
+  color: var(--ink2);
+  font-weight: 900;
+  font-size: 22px;
+}
+
+/* кнопки по углам */
+.cornerBtn{
+  position:absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  border: 3px solid rgba(52,50,168,.55);
+  background: rgba(255,255,255,.78);
+  color: var(--ink2);
+  font-weight: 900;
+  font-size: 22px;
+  box-shadow: 0 2px 0 rgba(52,50,168,.15);
+}
+.leftTop{ left: 22px; top: 16px; }
+.rightTop{ right: 22px; top: 16px; }
+
+/* “рисунки” на главном (упрощённые) */
+.homeArt{
+  position:absolute;
+  width: 280px;
+  height: 320px;
+  opacity:.85;
+  filter: drop-shadow(0 2px 0 rgba(52,50,168,.10));
   border-radius: 16px;
-  border: 1px solid var(--stroke);
-  background: rgba(255,255,255,.06);
-  color: var(--text);
-  font-weight: 700;
 }
-.pill.primary{
-  background: rgba(140,170,255,.22);
+.leftShip{
+  left: 40px;
+  bottom: 20px;
+  background:
+    radial-gradient(140px 120px at 45% 45%, rgba(52,50,168,.18), transparent 55%),
+    radial-gradient(260px 200px at 30% 70%, rgba(52,50,168,.14), transparent 60%);
 }
-.pill:disabled{
-  opacity:.45;
+.rightLighthouse{
+  right: 60px;
+  bottom: 20px;
+  background:
+    radial-gradient(160px 140px at 50% 40%, rgba(52,50,168,.16), transparent 60%),
+    radial-gradient(240px 220px at 70% 80%, rgba(52,50,168,.12), transparent 60%);
 }
 
-/* HOME */
-.homeGrid{
-  display:grid;
-  grid-template-columns: 1fr 380px;
-  gap: 14px;
-  height:100%;
-}
-.artLeft{
-  border-radius: 22px;
-  border: 1px solid rgba(160,190,255,.14);
-  background:
-    radial-gradient(500px 320px at 30% 35%, rgba(140,170,255,.20), transparent 60%),
-    radial-gradient(420px 300px at 70% 75%, rgba(255,255,255,.06), transparent 55%),
-    rgba(255,255,255,.02);
-}
-.menuCol{
+/* меню */
+.homeMenu{
+  position:absolute;
+  top: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
   display:flex;
   flex-direction:column;
-  justify-content:center;
-  gap: 12px;
-  padding: 10px;
+  gap: 14px;
 }
-.bigBtn{
-  height: 58px;
-  border-radius: 18px;
-  border: 1px solid var(--stroke);
-  background: rgba(255,255,255,.06);
-  color: var(--text);
-  font-size: 18px;
+.inkBtn{
+  height: 56px;
+  border-radius: 10px;
+  border: 3px solid rgba(52,50,168,.65);
+  background: rgba(255,255,255,.82);
+  color: var(--ink2);
   font-weight: 900;
+  font-size: 18px;
+  box-shadow: 0 2px 0 rgba(52,50,168,.15);
 }
-.versionHint{ margin-top: 10px; color: var(--muted); font-size: 13px; }
+.inkBtn.small{
+  height: 44px;
+  font-size: 16px;
+}
+.inkBtn:active{ transform: translateY(1px); }
 
-/* Panels */
-.panel{
-  border-radius: 22px;
-  border: 1px solid rgba(160,190,255,.18);
-  background: rgba(255,255,255,.03);
-  padding: 12px;
+/* Setup layout */
+.setupLayout{
+  position:absolute;
+  left: 60px;
+  right: 60px;
+  top: 80px;
+  bottom: 24px;
+  display:grid;
+  grid-template-columns: 520px 1fr;
+  gap: 26px;
+  align-items:start;
 }
-.panelTitle{
+
+.boardWrap{
+  position:relative;
+}
+
+.boardTitle{
+  color: var(--ink2);
   font-weight: 900;
-  font-size: 18px;
+  font-size: 24px;
   margin-bottom: 10px;
 }
 
-/* Setup */
-.setupLayout{
-  display:grid;
-  grid-template-columns: 520px 1fr;
-  gap: 14px;
-  height:100%;
-}
-.gridCanvas{
+canvas{
   width:100%;
   height:auto;
-  border-radius: 18px;
-  border: 1px solid rgba(160,190,255,.22);
-  background: rgba(255,255,255,.02);
+  border-radius: 8px;
+  border: 4px solid rgba(52,50,168,.75);
+  background: rgba(255,255,255,.65);
 }
 
-.fleetList{
-  display:flex;
-  flex-direction:column;
-  gap: 10px;
+.fleetWrap{
+  position:relative;
 }
-.fleetItem{
+
+.fleetTop{
   display:flex;
   align-items:center;
   justify-content:space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.fleetTitle{
+  color: var(--ink2);
+  font-weight: 900;
+  font-size: 26px;
+}
+.fleetActions{
+  display:flex;
   gap: 10px;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(160,190,255,.22);
-  background: rgba(255,255,255,.03);
+}
+.miniInkBtn{
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 3px solid rgba(52,50,168,.65);
+  background: rgba(255,255,255,.82);
+  color: var(--ink2);
+  font-weight: 900;
+}
+.miniInkBtn.primary{
+  background: rgba(210,220,255,.95);
+}
+.miniInkBtn:disabled{ opacity:.45; }
+
+.fleetRow{
+  display:flex;
+  gap: 16px;
+  flex-wrap:wrap;
+}
+
+.shipCard{
+  width: 180px;
+  height: 64px;
+  border-radius: 12px;
+  border: 3px solid rgba(52,50,168,.65);
+  background: rgba(255,255,255,.82);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 8px 10px;
   cursor:pointer;
 }
-.fleetItem.selected{
-  outline: 2px solid rgba(140,170,255,.45);
+.shipCard.selected{
+  outline: 3px solid rgba(52,50,168,.35);
 }
-.fleetLeft{ display:flex; align-items:center; gap:10px; }
-.deckDot{
-  width: 12px; height: 12px; border-radius: 50%;
-  border: 2px solid rgba(180,210,255,.55);
-  background: rgba(255,255,255,.04);
+.shipDots{
+  display:flex;
+  gap: 6px;
 }
-.fleetName{ font-weight: 900; }
-.fleetRemain{ color: var(--muted); font-weight: 700; }
-
-.legend{ margin-top: 12px; color: var(--muted); font-weight: 700; display:flex; align-items:center; gap:12px; }
-.dot{ width: 10px; height: 10px; border-radius:50%; display:inline-block; }
-.dot.ship{ background: rgba(140,170,255,.55); }
-.dot.forbid{ background: rgba(255,120,140,.45); }
+.shipDot{
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid rgba(52,50,168,.55);
+  background: rgba(255,255,255,.85);
+}
+.shipMeta{
+  text-align:right;
+  color: var(--ink2);
+  font-weight: 900;
+  font-size: 13px;
+}
+.shipMeta span{ display:block; font-weight:800; opacity:.8; }
 
 /* Lobby */
 .lobbyLayout{
+  position:absolute;
+  left: 60px;
+  right: 60px;
+  top: 88px;
+  bottom: 24px;
   display:grid;
-  grid-template-columns: 1fr 360px;
-  gap: 14px;
-  height:100%;
+  grid-template-columns: 1fr 320px;
+  gap: 18px;
 }
-.playersList{
+
+.playersTitle{
+  color: var(--ink2);
+  font-weight: 900;
+  font-size: 26px;
+  margin-bottom: 12px;
+}
+.playersGrid{
   display:grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 .playerBtn{
-  height: 52px;
-  border-radius: 18px;
-  border: 1px solid rgba(160,190,255,.22);
-  background: rgba(255,255,255,.03);
-  color: var(--text);
+  height: 56px;
+  border-radius: 12px;
+  border: 3px solid rgba(52,50,168,.65);
+  background: rgba(255,255,255,.82);
+  color: var(--ink2);
   font-weight: 900;
-  font-size: 16px;
+  font-size: 18px;
 }
-.statusBox{
-  border-radius: 18px;
-  border: 1px solid rgba(160,190,255,.18);
-  background: rgba(0,0,0,.14);
+.playersHint{
+  margin-top: 10px;
+  color: rgba(52,50,168,.75);
+  font-weight: 900;
+}
+.hintBox{
+  border-radius: 12px;
+  border: 3px solid rgba(52,50,168,.45);
+  background: rgba(255,255,255,.75);
   padding: 12px;
-  min-height: 140px;
-  color: var(--text);
+  color: var(--ink2);
+  font-weight: 800;
 }
-.subHint{ margin-top: 10px; color: var(--muted); }
 
 /* Match */
-.matchLayout{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  height:100%;
-}
-.turnHint{
-  margin-top: 10px;
-  color: var(--muted);
-  font-weight: 700;
+.matchVs{
+  position:absolute;
+  top: 52px;
+  left:0; right:0;
+  text-align:center;
+  color: rgba(52,50,168,.85);
+  font-weight: 900;
 }
 
-/* MODALS */
+.matchLayout{
+  position:absolute;
+  left: 60px;
+  right: 60px;
+  top: 92px;
+  bottom: 24px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+.tinyHint{
+  margin-top: 8px;
+  color: rgba(52,50,168,.65);
+  font-weight: 900;
+}
+
+/* MODAL */
 .modal{
   position:fixed;
   inset:0;
-  background: rgba(0,0,0,.5);
+  background: rgba(0,0,0,.55);
   display:none;
   align-items:center;
   justify-content:center;
@@ -287,52 +369,60 @@ html,body{
 }
 .modal.show{ display:flex; }
 .modalCard{
-  width: min(520px, 92vw);
-  border-radius: 22px;
-  border: 1px solid rgba(160,190,255,.25);
-  background: rgba(12,18,42,.88);
-  box-shadow: 0 25px 70px rgba(0,0,0,.5);
-  overflow:hidden;
+  width: min(720px, 94vw);
+  border-radius: 14px;
+  border: 3px solid rgba(52,50,168,.65);
+  background:
+    linear-gradient(to right, var(--grid2) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid2) 1px, transparent 1px),
+    var(--paper);
+  background-size: 20px 20px, 20px 20px, auto;
 }
-.modalTop{
+.modalHead{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(160,190,255,.15);
+  padding: 10px 12px;
+  border-bottom: 2px solid rgba(52,50,168,.25);
 }
-.modalTitle{ font-weight: 900; }
-.modalBody{ padding: 14px; color: var(--text); }
-.modalBottom{ padding: 12px 14px; display:flex; justify-content:flex-end; gap:10px; border-top: 1px solid rgba(160,190,255,.15); }
+.modalTitle{
+  color: var(--ink2);
+  font-weight: 900;
+  font-size: 24px;
+}
+.modalBody{ padding: 14px; color: var(--ink2); font-weight: 800; }
+.modalFoot{
+  padding: 12px;
+  display:flex;
+  justify-content:flex-end;
+  border-top: 2px solid rgba(52,50,168,.25);
+}
 
-.chatCard{
-  width: min(640px, 94vw);
-}
+.chatCard{ width: min(780px, 96vw); }
 .chatBody{
   height: 320px;
   overflow:auto;
   padding: 12px 14px;
-  background: rgba(255,255,255,.03);
 }
-.msg{ margin-bottom: 8px; color: var(--text); }
-.chatBottom{
+.chatFoot{
   display:flex;
   gap: 10px;
-  padding: 12px 14px;
-  border-top: 1px solid rgba(160,190,255,.15);
+  padding: 12px;
+  border-top: 2px solid rgba(52,50,168,.25);
 }
 .chatInput{
   flex:1;
   height: 44px;
-  border-radius: 14px;
-  border: 1px solid rgba(160,190,255,.25);
-  background: rgba(255,255,255,.05);
-  color: var(--text);
+  border-radius: 10px;
+  border: 3px solid rgba(52,50,168,.55);
   padding: 0 12px;
+  background: rgba(255,255,255,.85);
+  font-weight: 900;
+  color: var(--ink2);
   outline:none;
 }
-
-/* Телефон/узкие экраны: чуть компактнее без скролла */
-@media (max-width: 520px){
-  :root{ --baseW: 980; --baseH: 700; } /* пусть масштабируется */
+.msg{
+  color: var(--ink2);
+  font-weight: 900;
+  margin-bottom: 8px;
 }
