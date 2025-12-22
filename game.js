@@ -1,523 +1,834 @@
+/* Город Микро-Бизнеса (Tap & Build)
+   - Тап → деньги
+   - Бизнесы → пассивка
+   - Энергия → восстановление
+   - Ежедневки + стрик
+   - Сохранение localStorage
+   - Буст x2 на 30 сек
+   - Базовая интеграция Telegram WebApp
+*/
+
 (() => {
-  const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d");
+  "use strict";
 
-  const uiBalls = document.getElementById("ballsCount");
-  const uiRound = document.getElementById("round");
-  const hint = document.getElementById("hint");
-  const debugEl = document.getElementById("debug");
-
-  function setDebug(text) {
-    if (debugEl) debugEl.textContent = text;
+  // -----------------------------
+  // Telegram WebApp integration
+  // -----------------------------
+  const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+  const tgStatusEl = document.getElementById("tgStatus");
+  if (tg) {
+    try {
+      tg.ready();
+      tg.expand();
+      tgStatusEl.textContent = "Telegram Mini App";
+      // Тема (по желанию)
+      // tg.setHeaderColor?.("bg_color");
+    } catch {
+      tgStatusEl.textContent = "Telegram (ошибка init)";
+    }
+  } else {
+    tgStatusEl.textContent = "Web (не Telegram)";
   }
 
-  window.addEventListener("error", (e) => {
-    setDebug("JS ERROR:\n" + (e.message || "unknown") + "\n" + (e.filename || "") + ":" + (e.lineno || ""));
+  // -----------------------------
+  // Helpers
+  // -----------------------------
+  const $ = (id) => document.getElementById(id);
+
+  function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+  function format(n) {
+    // компактный формат: 1 234 / 1.2K / 3.4M
+    if (n < 1000) return Math.floor(n).toString();
+    if (n < 1_000_000) return (n / 1000).toFixed(n >= 10_000 ? 0 : 1).replace(/\.0$/, "") + "K";
+    if (n < 1_000_000_000) return (n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace(/\.0$/, "") + "M";
+    return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
+  }
+
+  function now() { return Date.now(); }
+
+  function showNotice(text, ms = 1500) {
+    const el = $("notice");
+    el.textContent = text;
+    if (!text) return;
+    window.clearTimeout(showNotice._t);
+    showNotice._t = window.setTimeout(() => {
+      el.textContent = "";
+    }, ms);
+  }
+
+  // -----------------------------
+  // Game content (businesses)
+  // -----------------------------
+  const BUSINESSES = [
+    { id: "coffee", name: "Кофейня", icon: "☕", rarity: "common", baseCost: 50, basePps: 0.25 },
+    { id: "bakery", name: "Пекарня", icon: "🥐", rarity: "common", baseCost: 120, basePps: 0.6 },
+    { id: "flowers", name: "Цветочный", icon: "💐", rarity: "common", baseCost: 220, basePps: 1.2 },
+    { id: "repair", name: "Ремонт телефонов", icon: "📱", rarity: "common", baseCost: 420, basePps: 2.2 },
+
+    { id: "foodtruck", name: "Фудтрак", icon: "🚚", rarity: "rare", baseCost: 900, basePps: 5.5 },
+    { id: "gym", name: "Зал", icon: "🏋️", rarity: "rare", baseCost: 1600, basePps: 9.5 },
+    { id: "delivery", name: "Доставка", icon: "🛵", rarity: "rare", baseCost: 2600, basePps: 14.0 },
+
+    { id: "mall", name: "Мини-ТЦ", icon: "🏬", rarity: "legendary", baseCost: 6000, basePps: 38.0 },
+    { id: "hotel", name: "Отель", icon: "🏨", rarity: "legendary", baseCost: 9800, basePps: 62.0 },
+  ];
+
+  const RARITY_LABEL = {
+    common: "Обычный",
+    rare: "Редкий",
+    legendary: "Легендарный",
+  };
+
+  // Стоимость апгрейда (уровни): cost = baseCost * (1.15 ^ level)
+  const COST_GROWTH = 1.15;
+  // Рост pps: pps = basePps * (1.12 ^ level)
+  const PPS_GROWTH = 1.12;
+
+  // -----------------------------
+  // State
+  // -----------------------------
+  const STORAGE_KEY = "microcity_save_v1";
+
+  const defaultState = () => ({
+    version: 1,
+    money: 0,
+    earnedTotal: 0,
+    tapsTotal: 0,
+
+    tapValue: 1,           // сколько даёт один тап (до буста)
+    energy: 40,
+    energyMax: 40,
+    energyRegenSec: 6,     // +1 энергия каждые N секунд
+    lastEnergyTick: now(),
+
+    lastActive: now(),     // для оффлайн-пассивки
+    boostUntil: 0,         // таймер буста
+
+    businesses: Object.fromEntries(BUSINESSES.map(b => [b.id, { level: 0 }])),
+    district: 1,
+
+    // ежедневки
+    streak: 0,
+    lastDailyDate: "", // YYYY-MM-DD
+    daily: {
+      didTap: false,
+      didBuy: false,
+      didCollect: false,
+    },
+
+    // сезон (простая метка)
+    season: 1,
+    seasonStart: now(),
   });
 
-  window.addEventListener("unhandledrejection", (e) => {
-    setDebug("PROMISE ERROR:\n" + (e.reason?.message || String(e.reason)));
+  let state = loadState();
+
+  // -----------------------------
+  // Save/Load
+  // -----------------------------
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultState();
+      const parsed = JSON.parse(raw);
+
+      // Мягкий merge с дефолтом на случай новых полей
+      const base = defaultState();
+      const merged = {
+        ...base,
+        ...parsed,
+        daily: { ...base.daily, ...(parsed.daily || {}) },
+        businesses: { ...base.businesses, ...(parsed.businesses || {}) },
+      };
+
+      // Важно: наличие всех бизнесов
+      for (const b of BUSINESSES) {
+        if (!merged.businesses[b.id]) merged.businesses[b.id] = { level: 0 };
+        if (typeof merged.businesses[b.id].level !== "number") merged.businesses[b.id].level = 0;
+      }
+
+      return merged;
+    } catch {
+      return defaultState();
+    }
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // игнор
+    }
+  }
+
+  // -----------------------------
+  // Economy calculations
+  // -----------------------------
+  function businessCost(bizId) {
+    const b = BUSINESSES.find(x => x.id === bizId);
+    const lvl = state.businesses[bizId].level;
+    return Math.floor(b.baseCost * Math.pow(COST_GROWTH, lvl));
+  }
+
+  function businessPps(bizId) {
+    const b = BUSINESSES.find(x => x.id === bizId);
+    const lvl = state.businesses[bizId].level;
+    // pps на 0 уровне = 0 (бизнес не куплен). На 1 уровне = basePps
+    if (lvl <= 0) return 0;
+    return b.basePps * Math.pow(PPS_GROWTH, (lvl - 1));
+  }
+
+  function totalPps() {
+    let sum = 0;
+    for (const b of BUSINESSES) sum += businessPps(b.id);
+    // бонус района (простая мета): +5% pps за каждый район после 1
+    const districtBonus = 1 + (state.district - 1) * 0.05;
+    return sum * districtBonus;
+  }
+
+  function ownedCount() {
+    let c = 0;
+    for (const b of BUSINESSES) if (state.businesses[b.id].level > 0) c++;
+    return c;
+  }
+
+  // -----------------------------
+  // Offline progress
+  // -----------------------------
+  function applyOfflineEarnings() {
+    const t = now();
+    const dtMs = Math.max(0, t - (state.lastActive || t));
+    const dtSec = dtMs / 1000;
+    const pps = totalPps();
+    const gained = pps * dtSec;
+
+    if (gained >= 1) {
+      state.money += gained;
+      state.earnedTotal += gained;
+      showNotice(`Оффлайн доход: +${format(gained)} 💸`, 2200);
+    }
+
+    // Энергия оффлайн (восстановление)
+    // Сколько тиков энергии прошло:
+    const tickMs = (state.energyRegenSec || 6) * 1000;
+    const lastTick = state.lastEnergyTick || t;
+    const ticks = Math.floor((t - lastTick) / tickMs);
+    if (ticks > 0) {
+      state.energy = clamp(state.energy + ticks, 0, state.energyMax);
+      state.lastEnergyTick = lastTick + ticks * tickMs;
+    }
+
+    state.lastActive = t;
+    saveState();
+  }
+
+  // -----------------------------
+  // Daily reset / streak
+  // -----------------------------
+  function dateKey(ts = now()) {
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function ensureDaily() {
+    const today = dateKey();
+    if (!state.lastDailyDate) {
+      state.lastDailyDate = today;
+      return;
+    }
+    if (state.lastDailyDate === today) return;
+
+    // Проверим, был ли пропуск дня (упрощенно: если не вчера → стрик сброс)
+    const last = new Date(state.lastDailyDate + "T00:00:00");
+    const cur = new Date(today + "T00:00:00");
+    const diffDays = Math.round((cur - last) / (24 * 3600 * 1000));
+
+    if (diffDays === 1) state.streak += 1;
+    else state.streak = 0;
+
+    state.lastDailyDate = today;
+    state.daily = { didTap: false, didBuy: false, didCollect: false };
+    saveState();
+  }
+
+  // -----------------------------
+  // UI Rendering
+  // -----------------------------
+  const moneyEl = $("money");
+  const ppsEl = $("pps");
+  const energyEl = $("energy");
+  const energyMaxEl = $("energyMax");
+  const energyFillEl = $("energyFill");
+  const seasonLineEl = $("seasonLine");
+  const streakLineEl = $("streakLine");
+
+  const gridEl = $("businessGrid");
+  const dailyListEl = $("dailyList");
+
+  let filter = "all";
+
+  function renderTop() {
+    moneyEl.textContent = format(state.money);
+    ppsEl.textContent = format(totalPps());
+    energyEl.textContent = Math.floor(state.energy);
+    energyMaxEl.textContent = state.energyMax;
+
+    const pct = state.energyMax > 0 ? (state.energy / state.energyMax) * 100 : 0;
+    energyFillEl.style.width = `${clamp(pct, 0, 100)}%`;
+
+    // сезон/день (очень упрощенно: день = сколько суток прошло от seasonStart)
+    const days = Math.floor((now() - state.seasonStart) / (24 * 3600 * 1000)) + 1;
+    seasonLineEl.textContent = `Сезон: ${state.season} • День: ${days}`;
+
+    streakLineEl.textContent = `Стрик: ${state.streak}`;
+  }
+
+  function renderBusinesses() {
+    gridEl.innerHTML = "";
+    const list = BUSINESSES.filter(b => filter === "all" ? true : b.rarity === filter);
+
+    for (const b of list) {
+      const lvl = state.businesses[b.id].level;
+      const cost = businessCost(b.id);
+      const pps = businessPps(b.id);
+
+      const wrap = document.createElement("div");
+      wrap.className = "biz";
+
+      const icon = document.createElement("div");
+      icon.className = "bizIcon";
+      icon.textContent = b.icon;
+
+      const mid = document.createElement("div");
+
+      const name = document.createElement("div");
+      name.className = "bizName";
+      name.textContent = b.name;
+
+      const meta = document.createElement("div");
+      meta.className = "bizMeta";
+
+      const badge = document.createElement("span");
+      badge.className = `badge ${b.rarity}`;
+      badge.textContent = RARITY_LABEL[b.rarity];
+
+      const badge2 = document.createElement("span");
+      badge2.className = "badge common";
+      badge2.textContent = lvl > 0 ? `Доход: ${format(pps)}/с` : `Доход: +${format(b.basePps)}/с`;
+
+      meta.appendChild(badge);
+      meta.appendChild(badge2);
+
+      mid.appendChild(name);
+      mid.appendChild(meta);
+
+      const right = document.createElement("div");
+      right.className = "bizRight";
+
+      const lvlEl = document.createElement("div");
+      lvlEl.className = "bizLvl";
+      lvlEl.textContent = `Уровень: ${lvl}`;
+
+      const btn = document.createElement("button");
+      btn.className = "bizBtn";
+      btn.textContent = lvl === 0 ? `Купить за ${format(cost)}` : `Апгрейд за ${format(cost)}`;
+      btn.disabled = state.money < cost;
+
+      btn.addEventListener("click", () => openBusinessModal(b.id));
+
+      right.appendChild(lvlEl);
+      right.appendChild(btn);
+
+      wrap.appendChild(icon);
+      wrap.appendChild(mid);
+      wrap.appendChild(right);
+
+      gridEl.appendChild(wrap);
+    }
+  }
+
+  function renderDaily() {
+    const quests = [
+      {
+        key: "didTap",
+        title: "Сделай 50 тапов",
+        desc: "Заработай активом и прокачай темп.",
+        done: state.daily.didTap,
+        reward: 120,
+        action: () => showNotice("Тапай — прогресс засчитывается автоматически 🙂"),
+      },
+      {
+        key: "didBuy",
+        title: "Купи или улучшай бизнес",
+        desc: "Сделай одну покупку/апгрейд.",
+        done: state.daily.didBuy,
+        reward: 180,
+        action: () => showNotice("Открой вкладку бизнесов и купи/улучши 🏗️"),
+      },
+      {
+        key: "didCollect",
+        title: "Собери пассивку 1 раз",
+        desc: "Нажми «Собрать пассивку».",
+        done: state.daily.didCollect,
+        reward: 90,
+        action: () => showNotice("Нажми «Собрать пассивку» 💸"),
+      },
+    ];
+
+    dailyListEl.innerHTML = "";
+    for (const q of quests) {
+      const row = document.createElement("div");
+      row.className = "quest";
+
+      const left = document.createElement("div");
+      left.className = "questLeft";
+
+      const t = document.createElement("div");
+      t.className = "questTitle";
+      t.textContent = q.title;
+
+      const d = document.createElement("div");
+      d.className = "questDesc";
+      d.textContent = `${q.desc} • Награда: +${format(q.reward)}💰`;
+
+      left.appendChild(t);
+      left.appendChild(d);
+
+      const btn = document.createElement("button");
+      btn.className = "btn questBtn";
+      btn.textContent = q.done ? "Получено" : "К заданию";
+      btn.disabled = q.done;
+      btn.addEventListener("click", q.action);
+
+      row.appendChild(left);
+      row.appendChild(btn);
+
+      dailyListEl.appendChild(row);
+    }
+  }
+
+  // -----------------------------
+  // Tabs (bottom bar)
+  // -----------------------------
+  const panelStats = $("panel-stats");
+  const panelSettings = $("panel-settings");
+
+  function setTab(tab) {
+    // Panels
+    panelStats.classList.toggle("hidden", tab !== "stats");
+    panelSettings.classList.toggle("hidden", tab !== "settings");
+
+    // Main layout hidden when in panel?
+    const layout = document.querySelector(".layout");
+    const showMain = tab === "home";
+    layout.querySelectorAll(".card").forEach(card => card.classList.toggle("hidden", !showMain));
+    // Keep bottom bar always visible
+
+    document.querySelectorAll(".navBtn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.tab === tab);
+    });
+
+    if (tab === "stats") renderStatsPanel();
+  }
+
+  document.querySelectorAll(".navBtn").forEach(btn => {
+    btn.addEventListener("click", () => setTab(btn.dataset.tab));
   });
 
-  document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
-  document.body.style.overflow = "hidden";
+  // -----------------------------
+  // Modal helpers
+  // -----------------------------
+  const backdrop = $("modalBackdrop");
+  const modalTitle = $("modalTitle");
+  const modalBody = $("modalBody");
+  const modalFooter = $("modalFooter");
 
-  // --- Resize canvas to real size ---
-  let W = 0, H = 0, dpr = 1;
+  function openModal(title, bodyHtml, footerButtons = []) {
+    modalTitle.textContent = title;
+    modalBody.innerHTML = bodyHtml;
+    modalFooter.innerHTML = "";
 
-  function resizeCanvasToDisplaySize() {
-    dpr = Math.max(1, window.devicePixelRatio || 1);
-    const rect = canvas.getBoundingClientRect();
-    const cssW = Math.max(1, Math.floor(rect.width));
-    const cssH = Math.max(1, Math.floor(rect.height));
-
-    const needW = Math.floor(cssW * dpr);
-    const needH = Math.floor(cssH * dpr);
-
-    if (canvas.width !== needW || canvas.height !== needH) {
-      canvas.width = needW;
-      canvas.height = needH;
+    for (const b of footerButtons) {
+      const btn = document.createElement("button");
+      btn.className = b.className || "btn";
+      btn.textContent = b.text;
+      btn.addEventListener("click", b.onClick);
+      modalFooter.appendChild(btn);
     }
 
-    W = cssW;
-    H = cssH;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    backdrop.classList.remove("hidden");
   }
 
-  function ensureSized(tries = 0) {
-    resizeCanvasToDisplaySize();
-    if ((W < 10 || H < 10) && tries < 10) requestAnimationFrame(() => ensureSized(tries + 1));
+  function closeModal() {
+    backdrop.classList.add("hidden");
   }
 
-  window.addEventListener("resize", () => ensureSized(0));
-  ensureSized(0);
+  $("modalClose").addEventListener("click", closeModal);
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop) closeModal();
+  });
 
-  // --- Game constants ---
-  const GRID_COLS = 8;
-  const GRID_ROWS_VISIBLE = 10;
-  const TOP_MARGIN = 12;
-  const SIDE_MARGIN = 12;
-  const CELL_GAP = 6;
+  // -----------------------------
+  // Business modal
+  // -----------------------------
+  function openBusinessModal(bizId) {
+    const b = BUSINESSES.find(x => x.id === bizId);
+    const lvl = state.businesses[bizId].level;
+    const cost = businessCost(bizId);
 
-  const BALL_RADIUS = 5;
-  const BALL_SPEED = 720;      // px/sec
-  const SHOT_INTERVAL = 40;    // ms
-  const MIN_AIM_ANGLE = -Math.PI + 0.25;
-  const MAX_AIM_ANGLE = -0.25;
+    const currentPps = businessPps(bizId);
+    const nextPps = (() => {
+      const tmpLvl = lvl + 1;
+      if (tmpLvl <= 0) return 0;
+      // на следующем уровне доход считается как basePps * (PPS_GROWTH^(tmpLvl-1))
+      return b.basePps * Math.pow(PPS_GROWTH, (tmpLvl - 1));
+    })();
 
-  // Платформа
-  const PADDLE_H = 10;
-  const PADDLE_Y_OFFSET = 26; // от низа
-  let paddle = { x: 0, y: 0, w: 120, h: PADDLE_H };
+    const canBuy = state.money >= cost;
 
-  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-  function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+    const body = `
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:10px;">
+        <div style="font-size:32px;">${b.icon}</div>
+        <div>
+          <div style="font-weight:950; font-size:16px;">${b.name}</div>
+          <div class="small">Редкость: ${RARITY_LABEL[b.rarity]}</div>
+        </div>
+      </div>
 
-  // --- Layout ---
-  let cellSize = 0;
-  function computeCellSize() {
-    const usableW = W - SIDE_MARGIN * 2;
-    cellSize = (usableW - (GRID_COLS - 1) * CELL_GAP) / GRID_COLS;
-    cellSize = Math.max(18, cellSize);
-  }
+      <div style="display:grid; gap:8px;">
+        <div class="small">Текущий уровень: <b>${lvl}</b></div>
+        <div class="small">Текущий доход: <b>${format(currentPps)}</b> / сек</div>
+        <div class="small">Следующий доход: <b>${format(nextPps)}</b> / сек</div>
+        <div class="small">Цена ${lvl === 0 ? "покупки" : "апгрейда"}: <b>${format(cost)}</b> 💰</div>
+      </div>
+    `;
 
-  function cellToRect(col, row) {
-    const x = SIDE_MARGIN + col * (cellSize + CELL_GAP);
-    const y = TOP_MARGIN + row * (cellSize + CELL_GAP);
-    return { x, y, w: cellSize, h: cellSize };
-  }
-
-  // --- State ---
-  let round = 1;
-  let ballsTotal = 1;
-
-  let blocks = []; // {col,row,hp}
-  let gems = [];   // {col,row}
-
-  let isAiming = false;
-  let isShooting = false;
-  let aimStart = null;
-  let aimEnd = null;
-
-  let balls = []; // active balls {x,y,vx,vy,alive}
-  let ballsLaunched = 0;
-  let ballsReturned = 0;
-
-  // куда “возвращаем” старт следующего выстрела
-  let lastReturnX = null;
-
-  function syncUI() {
-    uiBalls.textContent = "x" + ballsTotal;
-    uiRound.textContent = "Round " + round;
-  }
-
-  function updatePaddleGeometry() {
-    // адаптивная ширина платформы
-    paddle.w = clamp(W * 0.28, 90, 150);
-    paddle.h = PADDLE_H;
-    paddle.y = H - PADDLE_Y_OFFSET;
-
-    if (paddle.x === 0) {
-      paddle.x = (lastReturnX ?? (W / 2)) - paddle.w / 2;
-    }
-
-    paddle.x = clamp(paddle.x, 8, W - paddle.w - 8);
-  }
-
-  function spawnNewRow() {
-    let spawned = false;
-    const row = 0;
-
-    for (let col = 0; col < GRID_COLS; col++) {
-      const r = Math.random();
-      if (r < 0.62) {
-        blocks.push({ col, row, hp: round * 2 + randInt(0, round) });
-        spawned = true;
-      } else if (r < 0.78) {
-        gems.push({ col, row });
-        spawned = true;
-      }
-    }
-
-    if (!spawned) blocks.push({ col: Math.floor(GRID_COLS / 2), row, hp: round * 2 });
-  }
-
-  function shiftDown() {
-    for (const b of blocks) b.row += 1;
-    for (const g of gems) g.row += 1;
-  }
-
-  function checkLose() {
-    return blocks.some(b => b.row >= GRID_ROWS_VISIBLE);
-  }
-
-  function resetGame() {
-    round = 1;
-    ballsTotal = 1;
-    blocks = [];
-    gems = [];
-    balls = [];
-    ballsLaunched = 0;
-    ballsReturned = 0;
-    lastReturnX = null;
-
-    paddle.x = 0; // пересчитается в updatePaddleGeometry()
-
-    spawnNewRow();
-    syncUI();
-    if (hint) {
-      hint.textContent = "Проведи и отпусти, чтобы выстрелить";
-      hint.style.opacity = "1";
-    }
-  }
-
-  // --- Collision helpers ---
-  function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
-    const nx = clamp(cx, rx, rx + rw);
-    const ny = clamp(cy, ry, ry + rh);
-    const dx = cx - nx;
-    const dy = cy - ny;
-    return (dx * dx + dy * dy) <= r * r;
-  }
-
-  function reflectBallFromRect(ball, rect) {
-    const cx = ball.x;
-    const cy = ball.y;
-    const left = Math.abs(cx - rect.x);
-    const right = Math.abs(cx - (rect.x + rect.w));
-    const top = Math.abs(cy - rect.y);
-    const bottom = Math.abs(cy - (rect.y + rect.h));
-    const minSide = Math.min(left, right, top, bottom);
-
-    if (minSide === left || minSide === right) ball.vx *= -1;
-    else ball.vy *= -1;
-  }
-
-  // Отражение от платформы с “углом” по месту удара
-  function bounceFromPaddle(ball) {
-    // нормализуем точку удара: -1 (лево) .. +1 (право)
-    const hitX = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
-    const t = clamp(hitX, -1, 1);
-
-    // сохраняем скорость, меняем направление
-    const speed = Math.hypot(ball.vx, ball.vy) || BALL_SPEED;
-
-    // чем ближе к краю — тем больше горизонтальная составляющая
-    const maxDeflect = 0.85; // насколько можно “увести” по горизонтали
-    const vx = t * maxDeflect * speed;
-
-    // вверх (vy отрицательная)
-    const vy = -Math.sqrt(Math.max(10, speed * speed - vx * vx));
-
-    ball.vx = vx;
-    ball.vy = vy;
-
-    // чуть поднимаем, чтобы не залип
-    ball.y = paddle.y - BALL_RADIUS - 0.5;
-  }
-
-  // --- Shooting ---
-  function getShooterPos() {
-    // старт из центра платформы, чуть выше неё
-    return {
-      x: paddle.x + paddle.w / 2,
-      y: paddle.y - 14
-    };
-  }
-
-  function startShot(angle) {
-    if (isShooting) return;
-    isShooting = true;
-    if (hint) hint.style.opacity = "0";
-
-    balls = [];
-    ballsLaunched = 0;
-    ballsReturned = 0;
-
-    const shooter = getShooterPos();
-
-    const timer = setInterval(() => {
-      if (ballsLaunched >= ballsTotal) {
-        clearInterval(timer);
-        return;
-      }
-
-      const vx = Math.cos(angle) * BALL_SPEED;
-      const vy = Math.sin(angle) * BALL_SPEED;
-
-      balls.push({ x: shooter.x, y: shooter.y, vx, vy, alive: true });
-      ballsLaunched++;
-    }, SHOT_INTERVAL);
-  }
-
-  function endRoundIfDone() {
-    if (!isShooting) return;
-    if (ballsReturned >= ballsTotal) {
-      isShooting = false;
-      round += 1;
-
-      shiftDown();
-      spawnNewRow();
-      syncUI();
-
-      if (checkLose()) {
-        if (hint) {
-          hint.textContent = "Проигрыш :( Потяни и отпусти, чтобы начать заново";
-          hint.style.opacity = "1";
+    openModal(
+      lvl === 0 ? "Купить бизнес" : "Улучшить бизнес",
+      body,
+      [
+        { text: "Закрыть", className: "btn ghost", onClick: closeModal },
+        {
+          text: canBuy ? (lvl === 0 ? "Купить" : "Апгрейд") : "Не хватает 💰",
+          className: canBuy ? "btn" : "btn ghost",
+          onClick: () => {
+            if (!canBuy) return;
+            buyOrUpgradeBusiness(bizId);
+            closeModal();
+          }
         }
-        resetGame();
-      }
-    }
-  }
-
-  // --- Input ---
-  function getPosFromEvent(e) {
-    const rect = canvas.getBoundingClientRect();
-    if (e.touches && e.touches[0]) {
-      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
-    }
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  }
-
-  // ВАЖНО: если идёт стрельба — drag двигает платформу
-  function onDown(e) {
-    const p = getPosFromEvent(e);
-
-    if (isShooting) {
-      // перемещаем платформу под палец
-      paddle.x = p.x - paddle.w / 2;
-      paddle.x = clamp(paddle.x, 8, W - paddle.w - 8);
-      return;
-    }
-
-    isAiming = true;
-    aimStart = p;
-    aimEnd = p;
-  }
-
-  function onMove(e) {
-    const p = getPosFromEvent(e);
-
-    if (isShooting) {
-      paddle.x = p.x - paddle.w / 2;
-      paddle.x = clamp(paddle.x, 8, W - paddle.w - 8);
-      return;
-    }
-
-    if (!isAiming) return;
-    aimEnd = p;
-  }
-
-  function onUp() {
-    if (isShooting) return;
-
-    if (!isAiming) return;
-    isAiming = false;
-
-    const shooter = getShooterPos();
-    const a0 = aimStart ?? shooter;
-    const a1 = aimEnd ?? shooter;
-
-    const dx = a1.x - a0.x;
-    const dy = a1.y - a0.y;
-
-    let ang = Math.atan2(dy, dx) + Math.PI; // тянем и стреляем вверх
-    ang = clamp(ang, MIN_AIM_ANGLE, MAX_AIM_ANGLE);
-
-    aimStart = null;
-    aimEnd = null;
-
-    startShot(ang);
-  }
-
-  canvas.addEventListener("mousedown", onDown);
-  canvas.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onUp);
-
-  canvas.addEventListener("touchstart", onDown, { passive: false });
-  canvas.addEventListener("touchmove", onMove, { passive: false });
-  window.addEventListener("touchend", onUp, { passive: false });
-
-  // --- Update / draw ---
-  function update(dt) {
-    resizeCanvasToDisplaySize();
-    computeCellSize();
-    updatePaddleGeometry();
-
-    for (const ball of balls) {
-      if (!ball.alive) continue;
-
-      ball.x += ball.vx * dt;
-      ball.y += ball.vy * dt;
-
-      // стены
-      if (ball.x - BALL_RADIUS <= 0) { ball.x = BALL_RADIUS; ball.vx *= -1; }
-      if (ball.x + BALL_RADIUS >= W) { ball.x = W - BALL_RADIUS; ball.vx *= -1; }
-      if (ball.y - BALL_RADIUS <= 0) { ball.y = BALL_RADIUS; ball.vy *= -1; }
-
-      // Платформа: отбивание
-      if (circleRectCollision(ball.x, ball.y, BALL_RADIUS, paddle.x, paddle.y, paddle.w, paddle.h)) {
-        // если летит вниз — отбиваем, если вверх — не трогаем (чтобы не заедало)
-        if (ball.vy > 0) bounceFromPaddle(ball);
-      }
-
-      // блоки
-      for (let i = blocks.length - 1; i >= 0; i--) {
-        const b = blocks[i];
-        const r = cellToRect(b.col, b.row);
-        if (circleRectCollision(ball.x, ball.y, BALL_RADIUS, r.x, r.y, r.w, r.h)) {
-          b.hp -= 1;
-          reflectBallFromRect(ball, r);
-          if (b.hp <= 0) blocks.splice(i, 1);
-          break;
-        }
-      }
-
-      // гемы +1
-      for (let i = gems.length - 1; i >= 0; i--) {
-        const g = gems[i];
-        const r = cellToRect(g.col, g.row);
-        if (circleRectCollision(ball.x, ball.y, BALL_RADIUS, r.x, r.y, r.w, r.h)) {
-          gems.splice(i, 1);
-          ballsTotal += 1;
-          syncUI();
-          break;
-        }
-      }
-
-      // если шар прошёл НИЖЕ платформы — считаем “упал/вернулся”
-      if (ball.y - BALL_RADIUS > H + 20) {
-        ball.alive = false;
-        ballsReturned += 1;
-
-        // точка старта следующего раунда — куда упал первый шар
-        if (lastReturnX === null) {
-          lastReturnX = clamp(ball.x, 16, W - 16);
-          paddle.x = lastReturnX - paddle.w / 2;
-        }
-
-        endRoundIfDone();
-      }
-    }
-
-    setDebug(
-      `W×H: ${W}×${H}\n` +
-      `paddle: x=${Math.round(paddle.x)} w=${Math.round(paddle.w)}\n` +
-      `blocks: ${blocks.length} gems: ${gems.length}\n` +
-      `ballsTotal: ${ballsTotal} active: ${balls.filter(b=>b.alive).length}\n` +
-      `shooting: ${isShooting}`
+      ]
     );
   }
 
-  function drawAimLine() {
-    if (isShooting) return;
-    if (!isAiming || !aimStart || !aimEnd) return;
+  function buyOrUpgradeBusiness(bizId) {
+    const cost = businessCost(bizId);
+    if (state.money < cost) return;
 
-    const shooter = getShooterPos();
-    const dx = aimEnd.x - aimStart.x;
-    const dy = aimEnd.y - aimStart.y;
+    state.money -= cost;
+    state.businesses[bizId].level += 1;
 
-    let ang = Math.atan2(dy, dx) + Math.PI;
-    ang = clamp(ang, MIN_AIM_ANGLE, MAX_AIM_ANGLE);
+    state.daily.didBuy = true;
 
-    ctx.save();
-    ctx.strokeStyle = "rgba(255,255,255,0.85)";
-    ctx.setLineDash([6, 8]);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(shooter.x, shooter.y);
-    ctx.lineTo(shooter.x + Math.cos(ang) * 900, shooter.y + Math.sin(ang) * 900);
-    ctx.stroke();
-    ctx.restore();
+    // Мета: апгрейд может увеличивать max энергии чуть-чуть
+    // Каждые 5 покупок/апов +1 max энергии (простая “приятная” прогрессия)
+    const totalLevels = BUSINESSES.reduce((s, b) => s + (state.businesses[b.id].level || 0), 0);
+    const bonusMax = Math.floor(totalLevels / 5);
+    const baseMax = 40;
+    state.energyMax = baseMax + bonusMax;
+    state.energy = clamp(state.energy, 0, state.energyMax);
+
+    saveState();
+    renderAll();
+    checkDistrictProgress();
+
+    showNotice("✅ Успешно!");
   }
 
-  function draw() {
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#0b1020";
-    ctx.fillRect(0, 0, W, H);
-
-    // блоки
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
-    for (const b of blocks) {
-      const r = cellToRect(b.col, b.row);
-      ctx.fillStyle = "rgba(72, 120, 255, 0.92)";
-      ctx.fillRect(r.x, r.y, r.w, r.h);
-
-      ctx.fillStyle = "white";
-      ctx.font = "700 16px system-ui";
-      ctx.fillText(String(b.hp), r.x + r.w / 2, r.y + r.h / 2);
+  // -----------------------------
+  // Tap + energy + boost
+  // -----------------------------
+  const tapBtn = $("tapBtn");
+  tapBtn.addEventListener("click", () => {
+    tickEnergy(); // чтобы энергия была актуальна
+    if (state.energy < 1) {
+      showNotice("Нет энергии 😴");
+      if (tg) tg.HapticFeedback?.notificationOccurred?.("error");
+      return;
     }
 
-    // gems
-    for (const g of gems) {
-      const r = cellToRect(g.col, g.row);
-      const cx = r.x + r.w / 2;
-      const cy = r.y + r.h / 2;
+    state.energy -= 1;
 
-      ctx.fillStyle = "rgba(255, 64, 180, 0.95)";
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - 12);
-      ctx.lineTo(cx + 12, cy);
-      ctx.lineTo(cx, cy + 14);
-      ctx.lineTo(cx - 12, cy);
-      ctx.closePath();
-      ctx.fill();
+    const isBoost = now() < state.boostUntil;
+    const value = state.tapValue * (isBoost ? 2 : 1);
 
-      ctx.fillStyle = "white";
-      ctx.font = "800 12px system-ui";
-      ctx.fillText("+1", cx, cy + 24);
+    state.money += value;
+    state.earnedTotal += value;
+    state.tapsTotal += 1;
+
+    // Ежедневка: 50 тапов
+    if (!state.daily.didTap && state.tapsTotal % 50 === 0) {
+      state.daily.didTap = true;
+      state.money += 120;
+      state.earnedTotal += 120;
+      showNotice("🎁 Ежедневка выполнена: +120 💰");
     }
 
-    // прицел
-    drawAimLine();
+    if (tg) tg.HapticFeedback?.impactOccurred?.("light");
 
-    // Платформа
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    const rr = 8; // “скругление” визуально
-    ctx.beginPath();
-    ctx.moveTo(paddle.x + rr, paddle.y);
-    ctx.lineTo(paddle.x + paddle.w - rr, paddle.y);
-    ctx.quadraticCurveTo(paddle.x + paddle.w, paddle.y, paddle.x + paddle.w, paddle.y + rr);
-    ctx.lineTo(paddle.x + paddle.w, paddle.y + paddle.h - rr);
-    ctx.quadraticCurveTo(paddle.x + paddle.w, paddle.y + paddle.h, paddle.x + paddle.w - rr, paddle.y + paddle.h);
-    ctx.lineTo(paddle.x + rr, paddle.y + paddle.h);
-    ctx.quadraticCurveTo(paddle.x, paddle.y + paddle.h, paddle.x, paddle.y + paddle.h - rr);
-    ctx.lineTo(paddle.x, paddle.y + rr);
-    ctx.quadraticCurveTo(paddle.x, paddle.y, paddle.x + rr, paddle.y);
-    ctx.closePath();
-    ctx.fill();
+    saveState();
+    renderTop();
+    renderBusinesses();
+    renderStatsPanel();
+  });
 
-    // shooter точка (из центра платформы)
-    const s = getShooterPos();
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, 5, 0, Math.PI * 2);
-    ctx.fill();
+  $("collectBtn").addEventListener("click", () => {
+    // Собрать пассивку за последние 30 секунд как “ручной сбор” (чтобы был смысл нажимать)
+    const pps = totalPps();
+    const amount = pps * 30;
+    if (amount < 1) {
+      showNotice("Пока нечего собирать — купи бизнес 🙂");
+      return;
+    }
+    state.money += amount;
+    state.earnedTotal += amount;
 
-    // шары
-    for (const ball of balls) {
-      if (!ball.alive) continue;
-      ctx.fillStyle = "rgba(255, 230, 80, 0.95)";
-      ctx.beginPath();
-      ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
-      ctx.fill();
+    if (!state.daily.didCollect) {
+      state.daily.didCollect = true;
+      state.money += 90;
+      state.earnedTotal += 90;
+      showNotice(`💸 Собрано: +${format(amount)} и бонус +90`);
+    } else {
+      showNotice(`💸 Собрано: +${format(amount)}`);
+    }
+
+    saveState();
+    renderAll();
+  });
+
+  $("boostBtn").addEventListener("click", () => {
+    // MVP: буст бесплатно раз в 90 секунд (чтобы имитировать rewarded-рекламу)
+    const cd = 90_000;
+    const key = "microcity_last_boost";
+    const last = Number(localStorage.getItem(key) || "0");
+    const t = now();
+    if (t - last < cd) {
+      const left = Math.ceil((cd - (t - last)) / 1000);
+      showNotice(`Буст будет доступен через ${left} сек`);
+      return;
+    }
+
+    localStorage.setItem(key, String(t));
+    state.boostUntil = t + 30_000;
+    saveState();
+
+    showNotice("⚡ Буст активирован: x2 на 30 сек!");
+    if (tg) tg.HapticFeedback?.notificationOccurred?.("success");
+  });
+
+  // -----------------------------
+  // Energy tick
+  // -----------------------------
+  function tickEnergy() {
+    const t = now();
+    const tickMs = (state.energyRegenSec || 6) * 1000;
+    const last = state.lastEnergyTick || t;
+
+    if (t < last) {
+      state.lastEnergyTick = t;
+      return;
+    }
+
+    const ticks = Math.floor((t - last) / tickMs);
+    if (ticks <= 0) return;
+
+    state.energy = clamp(state.energy + ticks, 0, state.energyMax);
+    state.lastEnergyTick = last + ticks * tickMs;
+  }
+
+  // -----------------------------
+  // District progression
+  // -----------------------------
+  function districtGoal(d) {
+    // Требование: в 1 районе 3 бизнеса, во 2 — 5, в 3 — 7, потом +2
+    return 3 + (d - 1) * 2;
+  }
+
+  function checkDistrictProgress() {
+    const owned = ownedCount();
+    const goal = districtGoal(state.district);
+    if (owned >= goal) {
+      state.district += 1;
+      // награда за новый район
+      const reward = 250 * state.district;
+      state.money += reward;
+      state.earnedTotal += reward;
+      saveState();
+      renderAll();
+      showNotice(`🏁 Новый район открыт! Район ${state.district} • Бонус +${format(reward)} 💰`, 2400);
     }
   }
 
-  // --- Main loop ---
-  let lastT = performance.now();
-  function loop(t) {
-    const dt = Math.min(0.033, (t - lastT) / 1000);
-    lastT = t;
+  $("districtBtn").addEventListener("click", () => {
+    const owned = ownedCount();
+    const goal = districtGoal(state.district);
+    if (owned >= goal) {
+      checkDistrictProgress();
+    } else {
+      showNotice(`Нужно бизнесов: ${owned}/${goal}`);
+    }
+    renderStatsPanel();
+  });
 
-    update(dt);
-    draw();
+  function renderStatsPanel() {
+    $("statTaps").textContent = format(state.tapsTotal);
+    $("statEarned").textContent = format(state.earnedTotal);
+    $("statOwned").textContent = String(ownedCount());
+    $("statDistrict").textContent = String(state.district);
 
-    requestAnimationFrame(loop);
+    const goal = districtGoal(state.district);
+    const owned = ownedCount();
+    $("districtTitle").textContent = `Район ${state.district}`;
+    $("districtHint").textContent = `Открой ${goal} бизнесов, чтобы перейти дальше. Сейчас: ${owned}/${goal}`;
   }
 
-  resetGame();
-  requestAnimationFrame(loop);
+  // -----------------------------
+  // Filters
+  // -----------------------------
+  document.querySelectorAll(".pill").forEach(p => {
+    p.addEventListener("click", () => {
+      document.querySelectorAll(".pill").forEach(x => x.classList.remove("active"));
+      p.classList.add("active");
+      filter = p.dataset.filter;
+      renderBusinesses();
+    });
+  });
+
+  // -----------------------------
+  // Settings: export/import/reset
+  // -----------------------------
+  $("exportBtn").addEventListener("click", () => {
+    const json = JSON.stringify(state, null, 2);
+    openModal(
+      "Экспорт сохранения",
+      `<textarea style="width:100%;height:220px;border-radius:16px;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.92);font-family:ui-monospace, SFMono-Regular, Menlo, monospace;">${escapeHtml(json)}</textarea>
+       <div class="small" style="margin-top:8px;">Скопируй текст и сохрани.</div>`,
+      [
+        { text: "Закрыть", className: "btn", onClick: closeModal }
+      ]
+    );
+  });
+
+  $("importBtn").addEventListener("click", () => {
+    openModal(
+      "Импорт сохранения",
+      `<textarea id="importArea" placeholder="Вставь сюда JSON..." style="width:100%;height:220px;border-radius:16px;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.92);font-family:ui-monospace, SFMono-Regular, Menlo, monospace;"></textarea>
+       <div class="small" style="margin-top:8px;">Внимание: текущий прогресс будет перезаписан.</div>`,
+      [
+        { text: "Отмена", className: "btn ghost", onClick: closeModal },
+        {
+          text: "Импорт",
+          className: "btn",
+          onClick: () => {
+            const area = document.getElementById("importArea");
+            const txt = (area.value || "").trim();
+            if (!txt) return;
+            try {
+              const parsed = JSON.parse(txt);
+              // простая проверка
+              if (typeof parsed !== "object" || parsed === null) throw new Error("bad");
+              state = {
+                ...defaultState(),
+                ...parsed,
+                daily: { ...defaultState().daily, ...(parsed.daily || {}) },
+                businesses: { ...defaultState().businesses, ...(parsed.businesses || {}) },
+              };
+              saveState();
+              closeModal();
+              renderAll();
+              showNotice("✅ Импорт выполнен");
+            } catch {
+              showNotice("Ошибка импорта: неверный JSON");
+            }
+          }
+        }
+      ]
+    );
+  });
+
+  $("resetBtn").addEventListener("click", () => {
+    openModal(
+      "Сброс прогресса",
+      `<div>Точно сбросить всё? Это удалит сохранение на этом устройстве.</div>`,
+      [
+        { text: "Отмена", className: "btn ghost", onClick: closeModal },
+        {
+          text: "Сброс",
+          className: "btn danger",
+          onClick: () => {
+            localStorage.removeItem(STORAGE_KEY);
+            state = defaultState();
+            saveState();
+            closeModal();
+            renderAll();
+            showNotice("Сброшено.");
+          }
+        }
+      ]
+    );
+  });
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
+  }
+
+  // -----------------------------
+  // Main loop timers
+  // -----------------------------
+  function renderAll() {
+    ensureDaily();
+    renderTop();
+    renderDaily();
+    renderBusinesses();
+    renderStatsPanel();
+  }
+
+  // Пассивный доход начисляем “в фоне” раз в секунду
+  setInterval(() => {
+    tickEnergy();
+
+    const pps = totalPps();
+    if (pps > 0) {
+      state.money += pps;
+      state.earnedTotal += pps;
+    }
+
+    // Автовыполнение ежедневки “купил/собрал” делается в соответствующих местах.
+    // Тут просто обновим UI.
+    state.lastActive = now();
+    saveState();
+    renderTop();
+    renderBusinesses();
+  }, 1000);
+
+  // Ещё один UI-таймер, чтобы подсказки/проверки были плавнее
+  setInterval(() => {
+    ensureDaily();
+    renderDaily();
+  }, 3000);
+
+  // -----------------------------
+  // Init
+  // -----------------------------
+  applyOfflineEarnings();
+  renderAll();
+  setTab("home");
+
 })();
