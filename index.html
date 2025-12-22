@@ -1,151 +1,167 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1" />
   <title>Морской бой — онлайн игра</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app">
-
-    <header class="topbar">
-      <button class="iconbtn" id="btnBack" title="Назад">⟵</button>
-      <div class="topTitle" id="topTitle">Морской бой — онлайн игра</div>
-      <button class="iconbtn" id="btnTopChat" title="Чат">💬</button>
-    </header>
-
-    <!-- ЭКРАН 1: ГЛАВНЫЙ -->
-    <section class="screen active" id="screenHome" aria-hidden="false">
-      <div class="panel">
-        <div class="panelHeader">
-          <div class="bigTitle">Морской бой</div>
-          <div class="subtitle">UI макет под Telegram</div>
+  <!-- ВАЖНО: scaleRoot масштабируется так, чтобы всё влезло в Telegram WebView -->
+  <div id="viewport" class="viewport">
+    <div id="scaleRoot" class="scaleRoot">
+      <header class="topbar">
+        <button id="btnBack" class="iconBtn" aria-label="Назад">←</button>
+        <div id="topTitle" class="topTitle">Морской бой — онлайн игра</div>
+        <div class="topRight">
+          <button id="btnTopChat" class="iconBtn" aria-label="Чат">💬</button>
+          <button id="btnMenu" class="iconBtn" aria-label="Меню">⋯</button>
         </div>
+      </header>
 
-        <div class="menu">
-          <button class="btn primary" id="goOnline">Онлайн игра</button>
-          <button class="btn" id="goSettings">Настройки</button>
-          <button class="btn" id="goShare">Поделиться</button>
-          <button class="btn" id="goSupport">Поддержка</button>
-        </div>
+      <main class="stage">
+        <!-- HOME -->
+        <section id="screenHome" class="screen active" aria-hidden="false">
+          <div class="window">
+            <div class="windowBody homeGrid">
+              <div class="artLeft"></div>
 
-        <div class="hint">v0.3 — макет (без реального онлайна, пока UI)</div>
-      </div>
-    </section>
+              <div class="menuCol">
+                <button class="bigBtn" id="goOnline">Онлайн игра</button>
+                <button class="bigBtn" id="goSettings">Настройки</button>
+                <button class="bigBtn" id="goShare">Поделиться</button>
+                <button class="bigBtn" id="goSupport">Поддержка</button>
 
-    <!-- ЭКРАН 2: РАССТАНОВКА -->
-    <section class="screen" id="screenSetup" aria-hidden="true">
-      <div class="panel wide">
-        <div class="panelTopRow">
-          <div class="panelTitle">Расстановка</div>
-          <div class="rowRight">
-            <button class="chip" id="btnRotate">Повернуть: Гориз.</button>
-            <button class="chip" id="btnClearSetup">Сброс</button>
-            <button class="chip primary" id="btnToLobby" disabled>Далее</button>
-          </div>
-        </div>
-
-        <div class="setupLayout">
-          <div class="card">
-            <div class="cardTitle">Твоё поле</div>
-            <canvas id="setupCanvas" width="360" height="360"></canvas>
-            <div class="smallHint">Тапни по клетке — ставим выбранный корабль</div>
-          </div>
-
-          <div class="card">
-            <div class="cardTitle">Флот</div>
-            <div class="fleet" id="fleetList"></div>
-            <div class="legend">
-              <span class="dot ship"></span><span>корабль</span>
-              <span class="dot forbid"></span><span>нельзя рядом</span>
+                <div class="versionHint">v0.2 · пока без реального онлайна (макет UI)</div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <!-- ЭКРАН 3: ОБЩАЯ КОМНАТА -->
-    <section class="screen" id="screenLobby" aria-hidden="true">
-      <div class="panel wide">
-        <div class="panelTopRow">
-          <div class="panelTitle">Игровой зал</div>
-          <div class="rowRight">
-            <div class="onlineBadge">online: <b id="onlineCount">12</b></div>
-            <button class="chip" id="btnLobbyChat">Чат</button>
-          </div>
-        </div>
+        <!-- SETUP -->
+        <section id="screenSetup" class="screen" aria-hidden="true">
+          <div class="window">
+            <div class="windowHead">
+              <div class="headLeft">
+                <div class="h1">Расстановка</div>
+                <div class="hint">Тапни корабль → тапни по клетке</div>
+              </div>
+              <div class="headRight">
+                <button id="btnRotate" class="pill">Повернуть: Гориз.</button>
+                <button id="btnClearSetup" class="pill">Сброс</button>
+                <button id="btnToLobby" class="pill primary" disabled>Далее</button>
+              </div>
+            </div>
 
-        <div class="lobbyLayout">
-          <div class="card playersCard">
-            <div class="cardTitle">Игроки онлайн</div>
-            <div class="playersList" id="playersList"></div>
-            <div class="smallHint">Тапни по игроку — переход в бой 1×1</div>
-          </div>
+            <div class="windowBody setupLayout">
+              <div class="panel">
+                <div class="panelTitle">Твоё поле</div>
+                <canvas id="setupCanvas" width="460" height="460" class="gridCanvas"></canvas>
+              </div>
 
-          <div class="card infoCard">
-            <div class="cardTitle">Статус</div>
-            <div class="statusBox" id="statusBox">
-              Выбери игрока слева, чтобы начать 1×1.
+              <div class="panel">
+                <div class="panelTitle">Флот</div>
+                <div id="fleetList" class="fleetList"></div>
+                <div class="legend">
+                  <span class="dot ship"></span> корабль
+                  <span class="dot forbid"></span> нельзя рядом
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
+
+        <!-- LOBBY -->
+        <section id="screenLobby" class="screen" aria-hidden="true">
+          <div class="window">
+            <div class="windowHead">
+              <div class="headLeft">
+                <div class="h1">Игровой зал</div>
+                <div class="hint">Онлайн: <b id="onlineCount">0</b> игроков</div>
+              </div>
+              <div class="headRight">
+                <button id="btnLobbyChat" class="pill">Открыть чат</button>
+              </div>
+            </div>
+
+            <div class="windowBody lobbyLayout">
+              <div class="panel">
+                <div class="panelTitle">Игроки онлайн (тапни для 1×1)</div>
+                <div id="playersList" class="playersList"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panelTitle">Статус</div>
+                <div id="statusBox" class="statusBox">
+                  Выбери игрока слева, чтобы начать 1×1.
+                </div>
+                <div class="subHint">
+                  Чат открывается по кнопке сверху (💬) или “Открыть чат”.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MATCH -->
+        <section id="screenMatch" class="screen" aria-hidden="true">
+          <div class="window">
+            <div class="windowHead">
+              <div class="headLeft">
+                <div class="h1">Бой 1×1</div>
+                <div id="matchTitle" class="hint">Бой 1×1</div>
+              </div>
+              <div class="headRight">
+                <button id="btnMatchRestart" class="pill">В зал</button>
+              </div>
+            </div>
+
+            <div class="windowBody matchLayout">
+              <div class="panel">
+                <div class="panelTitle">Твоё поле</div>
+                <canvas id="myCanvas" width="420" height="420" class="gridCanvas"></canvas>
+              </div>
+
+              <div class="panel">
+                <div class="panelTitle">Поле противника (стреляй сюда)</div>
+                <canvas id="enemyCanvas" width="420" height="420" class="gridCanvas"></canvas>
+                <div id="turnHint" class="turnHint">Тапай по полю противника, чтобы стрелять</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modalCard">
+      <div class="modalTop">
+        <div id="modalTitle" class="modalTitle">Окно</div>
+        <button class="iconBtn" id="modalClose">✕</button>
       </div>
-    </section>
-
-    <!-- ЭКРАН 4: ИГРА 1vs1 -->
-    <section class="screen" id="screenMatch" aria-hidden="true">
-      <div class="panel wide">
-        <div class="panelTopRow">
-          <div class="panelTitle" id="matchTitle">Бой 1×1</div>
-          <div class="rowRight">
-            <button class="chip" id="btnMatchRestart">Заново</button>
-          </div>
-        </div>
-
-        <div class="matchLayout">
-          <div class="card">
-            <div class="cardTitle">Твоё поле</div>
-            <canvas id="myCanvas" width="320" height="320"></canvas>
-            <div class="smallHint">Твои корабли уже стоят</div>
-          </div>
-
-          <div class="card">
-            <div class="cardTitle">Поле противника (стреляй сюда)</div>
-            <canvas id="enemyCanvas" width="320" height="320"></canvas>
-            <div class="smallHint" id="turnHint">Тапай по клеткам, чтобы стрелять</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- МОДАЛКИ -->
-    <div class="modal" id="modal">
-      <div class="modalBox">
-        <div class="modalTitle" id="modalTitle">Окно</div>
-        <div class="modalBody" id="modalBody"></div>
-        <div class="modalActions">
-          <button class="btn primary" id="modalOk">Ок</button>
-        </div>
+      <div id="modalBody" class="modalBody"></div>
+      <div class="modalBottom">
+        <button id="modalOk" class="pill primary">Ок</button>
       </div>
     </div>
+  </div>
 
-    <!-- ЧАТ-МОДАЛКА -->
-    <div class="modal" id="chatModal">
-      <div class="modalBox chatBox">
-        <div class="chatHeader">
-          <div class="modalTitle">Чат</div>
-          <button class="iconbtn" id="chatClose">✕</button>
-        </div>
-        <div class="chatBody" id="chatBody"></div>
-        <div class="chatInputRow">
-          <input class="chatInput" id="chatInput" placeholder="Сообщение..." />
-          <button class="btn primary" id="chatSend">Отправить</button>
-        </div>
+  <!-- CHAT MODAL -->
+  <div id="chatModal" class="modal" aria-hidden="true">
+    <div class="modalCard chatCard">
+      <div class="modalTop">
+        <div class="modalTitle">Чат</div>
+        <button class="iconBtn" id="chatClose">✕</button>
+      </div>
+      <div id="chatBody" class="chatBody"></div>
+      <div class="chatBottom">
+        <input id="chatInput" class="chatInput" placeholder="Сообщение" />
+        <button id="chatSend" class="pill primary">Отпр.</button>
       </div>
     </div>
-
   </div>
 
   <script src="game.js"></script>
