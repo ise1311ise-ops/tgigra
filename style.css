@@ -6,17 +6,15 @@
   --grid1: rgba(42, 120, 120, .18);
   --grid2: rgba(42, 120, 120, .08);
 
-  /* TG safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
 
-  /* реальный vh для Telegram */
   --vh: 1vh;
 
   /* авто-масштаб */
   --scale: 1;
 
-  /* “как SeaBattle” — широкий лист */
+  /* базовые размеры листа (меняются JS под портрет/ландшафт) */
   --baseW: 1050;
   --baseH: 590;
 }
@@ -26,7 +24,7 @@ html,body{
   margin:0; padding:0;
   width:100%; height:100%;
   overflow:hidden; /* НЕТ СКРОЛЛА */
-  background:#000; /* вокруг листа */
+  background:#000;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
 }
 
@@ -47,7 +45,6 @@ html,body{
   transform-origin: top center;
 }
 
-/* сам лист в клетку */
 .paperSheet{
   width:100%;
   height:100%;
@@ -59,11 +56,10 @@ html,body{
     linear-gradient(to bottom, var(--grid1) 1px, transparent 1px),
     var(--paper);
   background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px, auto;
-  border-radius: 0; /* как на скрине — прямоугольник */
+  border-radius: 0;
   overflow:hidden;
 }
 
-/* верхняя строка */
 .sheetTop{
   height: 48px;
   padding: 6px 10px;
@@ -90,7 +86,6 @@ html,body{
   font-size: 18px;
 }
 
-/* экраны */
 .screens{
   height: calc(100% - 48px);
   position:relative;
@@ -112,7 +107,6 @@ html,body{
   font-size: 22px;
 }
 
-/* кнопки по углам */
 .cornerBtn{
   position:absolute;
   width: 60px;
@@ -128,7 +122,6 @@ html,body{
 .leftTop{ left: 22px; top: 16px; }
 .rightTop{ right: 22px; top: 16px; }
 
-/* “рисунки” на главном (упрощённые) */
 .homeArt{
   position:absolute;
   width: 280px;
@@ -152,7 +145,6 @@ html,body{
     radial-gradient(240px 220px at 70% 80%, rgba(52,50,168,.12), transparent 60%);
 }
 
-/* меню */
 .homeMenu{
   position:absolute;
   top: 160px;
@@ -163,6 +155,7 @@ html,body{
   flex-direction:column;
   gap: 14px;
 }
+
 .inkBtn{
   height: 56px;
   border-radius: 10px;
@@ -179,7 +172,7 @@ html,body{
 }
 .inkBtn:active{ transform: translateY(1px); }
 
-/* Setup layout */
+/* ====== ЛАНДШАФТ (по умолчанию) ====== */
 .setupLayout{
   position:absolute;
   left: 60px;
@@ -192,10 +185,7 @@ html,body{
   align-items:start;
 }
 
-.boardWrap{
-  position:relative;
-}
-
+.boardWrap{ position:relative; }
 .boardTitle{
   color: var(--ink2);
   font-weight: 900;
@@ -211,10 +201,7 @@ canvas{
   background: rgba(255,255,255,.65);
 }
 
-.fleetWrap{
-  position:relative;
-}
-
+.fleetWrap{ position:relative; }
 .fleetTop{
   display:flex;
   align-items:center;
@@ -227,10 +214,8 @@ canvas{
   font-weight: 900;
   font-size: 26px;
 }
-.fleetActions{
-  display:flex;
-  gap: 10px;
-}
+.fleetActions{ display:flex; gap: 10px; }
+
 .miniInkBtn{
   height: 40px;
   padding: 0 12px;
@@ -240,9 +225,7 @@ canvas{
   color: var(--ink2);
   font-weight: 900;
 }
-.miniInkBtn.primary{
-  background: rgba(210,220,255,.95);
-}
+.miniInkBtn.primary{ background: rgba(210,220,255,.95); }
 .miniInkBtn:disabled{ opacity:.45; }
 
 .fleetRow{
@@ -263,13 +246,9 @@ canvas{
   padding: 8px 10px;
   cursor:pointer;
 }
-.shipCard.selected{
-  outline: 3px solid rgba(52,50,168,.35);
-}
-.shipDots{
-  display:flex;
-  gap: 6px;
-}
+.shipCard.selected{ outline: 3px solid rgba(52,50,168,.35); }
+
+.shipDots{ display:flex; gap: 6px; }
 .shipDot{
   width: 14px;
   height: 14px;
@@ -296,7 +275,6 @@ canvas{
   grid-template-columns: 1fr 320px;
   gap: 18px;
 }
-
 .playersTitle{
   color: var(--ink2);
   font-weight: 900;
@@ -340,7 +318,6 @@ canvas{
   color: rgba(52,50,168,.85);
   font-weight: 900;
 }
-
 .matchLayout{
   position:absolute;
   left: 60px;
@@ -355,6 +332,60 @@ canvas{
   margin-top: 8px;
   color: rgba(52,50,168,.65);
   font-weight: 900;
+}
+
+/* ====== ПОРТРЕТ (ключевое: нормальный масштаб и компоновка) ====== */
+body.portrait .homeArt{ display:none; }
+
+body.portrait .homeMenu{
+  top: 120px;
+  width: 320px;
+}
+
+body.portrait .setupLayout{
+  left: 18px;
+  right: 18px;
+  top: 70px;
+  bottom: 18px;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto;
+  gap: 12px;
+}
+
+body.portrait .boardTitle{ font-size: 20px; margin-bottom: 8px; }
+body.portrait .fleetTitle{ font-size: 20px; }
+
+body.portrait .fleetActions .miniInkBtn{
+  height: 38px;
+  padding: 0 10px;
+}
+
+body.portrait .shipCard{
+  width: calc(50% - 8px);
+  height: 58px;
+}
+
+body.portrait .lobbyLayout{
+  left: 18px;
+  right: 18px;
+  top: 72px;
+  bottom: 18px;
+  grid-template-columns: 1fr;
+}
+
+body.portrait .playersGrid{
+  grid-template-columns: repeat(2, 1fr);
+}
+
+body.portrait .lobbyRightHint{ display:none; }
+
+body.portrait .matchLayout{
+  left: 18px;
+  right: 18px;
+  top: 80px;
+  bottom: 18px;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
 /* MODAL */
