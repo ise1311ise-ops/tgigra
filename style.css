@@ -1,33 +1,35 @@
 :root{
-  --bg:#0b0f12;
-  --card:#121922;
-  --card2:#0f151d;
-  --text:#e8f0f7;
-  --muted:#94a3b8;
-  --line:#223042;
-  --accent:#7dd3fc;
+  --bg:#071019;
+  --card:#0f1c2b;
+  --text:#e9f3ff;
+  --muted:#93a7bf;
+  --line:#22364f;
+  --accent:#60a5fa;
   --good:#86efac;
   --warn:#fbbf24;
   --bad:#fb7185;
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --shadow: 0 12px 34px rgba(0,0,0,.38);
 }
 
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
   margin:0;
-  background: radial-gradient(1200px 800px at 15% 0%, #122133 0%, var(--bg) 55%, #070a0d 100%);
   color:var(--text);
+  background:
+    radial-gradient(900px 600px at 10% 0%, rgba(96,165,250,.22) 0%, rgba(7,16,25,1) 55%),
+    radial-gradient(900px 600px at 95% 15%, rgba(134,239,172,.10) 0%, rgba(7,16,25,0) 55%),
+    linear-gradient(180deg, #050c12, #071019);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
 }
 
-.app{max-width:1100px; margin:0 auto; padding:18px}
+.app{max-width:1140px; margin:0 auto; padding:18px}
+
 .topbar{
-  display:flex; align-items:center; justify-content:space-between;
-  gap:14px;
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
   padding:14px 16px;
   background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-  border:1px solid rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.07);
   border-radius:18px;
   box-shadow:var(--shadow);
 }
@@ -36,33 +38,28 @@ body{
 .logo{
   width:44px;height:44px;border-radius:14px;
   display:grid;place-items:center;
-  background: radial-gradient(circle at 30% 30%, rgba(125,211,252,.35), rgba(125,211,252,.08));
-  border:1px solid rgba(125,211,252,.25);
+  background: radial-gradient(circle at 30% 30%, rgba(96,165,250,.35), rgba(96,165,250,.08));
+  border:1px solid rgba(96,165,250,.25);
   font-size:22px;
 }
-.title{font-weight:800; letter-spacing:.2px}
+.title{font-weight:900; letter-spacing:.2px}
 .subtitle{color:var(--muted); font-size:12px; margin-top:2px}
 
 .stats{display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end}
 .stat{
   padding:8px 10px;
   background: rgba(0,0,0,.18);
-  border:1px solid rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.07);
   border-radius:14px;
   min-width:110px;
 }
 .label{color:var(--muted); font-size:12px}
-.value{font-weight:800; font-size:16px}
+.value{font-weight:900; font-size:16px}
 
-.main{
-  display:flex;
-  gap:16px;
-  margin-top:16px;
-  align-items:stretch;
-}
+.main{display:flex; gap:16px; margin-top:16px; align-items:stretch}
 .panel{
   background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
-  border:1px solid rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.07);
   border-radius:18px;
   padding:14px;
   box-shadow:var(--shadow);
@@ -72,29 +69,21 @@ body{
 
 .tapZone{
   padding:12px;
-  background: rgba(0,0,0,.18);
-  border:1px dashed rgba(125,211,252,.25);
   border-radius:16px;
+  border:1px dashed rgba(96,165,250,.25);
+  background: rgba(0,0,0,.18);
 }
 .tapInfo{margin-top:8px; color:var(--muted); font-size:12px; line-height:1.35}
-
-.actionsGrid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-top:12px;
-}
-.hint{margin-top:10px; color:var(--muted); font-size:12px}
 
 .btn{
   cursor:pointer;
   border:none;
   border-radius:16px;
   padding:10px 12px;
-  background: radial-gradient(circle at 30% 30%, rgba(125,211,252,.28), rgba(125,211,252,.12));
-  border:1px solid rgba(125,211,252,.25);
+  background: radial-gradient(circle at 30% 30%, rgba(96,165,250,.28), rgba(96,165,250,.12));
+  border:1px solid rgba(96,165,250,.25);
   color:var(--text);
-  font-weight:800;
+  font-weight:900;
   transition: transform .06s ease, filter .12s ease;
 }
 .btn:hover{filter:brightness(1.05)}
@@ -102,69 +91,44 @@ body{
 .btn.big{width:100%; padding:14px 14px; font-size:16px}
 .btn.ghost{
   background: rgba(0,0,0,.18);
-  border:1px solid rgba(255,255,255,.08);
-  font-weight:700;
+  border:1px solid rgba(255,255,255,.09);
+  font-weight:800;
 }
-.btn:disabled{
-  opacity:.5;
-  cursor:not-allowed;
-  filter:saturate(.7);
-}
+.btn:disabled{opacity:.5; cursor:not-allowed; filter:saturate(.7)}
 
-.garden{
+.kvGrid{
   display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:12px;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
   margin-top:12px;
 }
-.plot{
-  min-height:120px;
-  border-radius:18px;
-  border:1px solid rgba(255,255,255,.08);
-  background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.05));
+.kv{
   padding:10px;
-  cursor:pointer;
-  position:relative;
-  overflow:hidden;
-}
-.plot:hover{outline: 2px solid rgba(125,211,252,.18)}
-.plot .name{font-weight:900}
-.plot .meta{color:var(--muted); font-size:12px; margin-top:6px; line-height:1.35}
-.plot .stage{
-  position:absolute; right:10px; top:10px;
-  font-size:12px; color:var(--muted);
-  background: rgba(0,0,0,.2);
-  border:1px solid rgba(255,255,255,.06);
-  padding:4px 8px;
-  border-radius:999px;
-}
-.plot .plantEmoji{
-  font-size:34px;
-  margin-top:14px;
-}
-.badge{
-  display:inline-block;
-  padding:3px 8px;
-  border-radius:999px;
-  font-size:12px;
-  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.07);
   background: rgba(0,0,0,.18);
-  margin-right:6px;
-  margin-top:6px;
+}
+.kv .value{font-size:14px}
+
+.actionsGrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-top:12px;
 }
 
-.quest{
+.mission{
   margin-top:12px;
   padding:12px;
   border-radius:16px;
   border:1px solid rgba(255,255,255,.08);
   background: rgba(0,0,0,.18);
 }
-.questHead{display:flex; justify-content:space-between; gap:10px; align-items:flex-start}
-.questTitle{font-weight:900}
-.questText{color:var(--muted); font-size:12px; margin-top:4px; line-height:1.35}
-.questReward .value{font-size:14px}
-.questProgress{margin-top:10px}
+.missionHead{display:flex; justify-content:space-between; gap:10px; align-items:flex-start}
+.missionTitle{font-weight:900}
+.missionText{color:var(--muted); font-size:12px; margin-top:4px; line-height:1.35}
+.missionRight .value{font-size:14px}
+.missionProgress{margin-top:10px}
 .bar{
   height:10px; border-radius:999px;
   border:1px solid rgba(255,255,255,.08);
@@ -174,9 +138,55 @@ body{
 .fill{
   height:100%;
   width:0%;
-  background: linear-gradient(90deg, rgba(134,239,172,.25), rgba(125,211,252,.25));
+  background: linear-gradient(90deg, rgba(134,239,172,.22), rgba(96,165,250,.22));
   border-right:1px solid rgba(255,255,255,.10);
 }
+.missionBtns{display:flex; gap:10px; margin-top:10px; flex-wrap:wrap}
+
+.route{margin-top:6px}
+.routeHead{display:flex; align-items:flex-end; justify-content:space-between; gap:10px}
+.routeTitle{font-weight:900}
+.routeSub{line-height:1.35}
+
+.map{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:12px;
+  margin-top:12px;
+}
+.node{
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.08);
+  background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.05));
+  padding:12px;
+  cursor:pointer;
+  position:relative;
+}
+.node:hover{outline:2px solid rgba(96,165,250,.16)}
+.node.locked{opacity:.45; cursor:not-allowed}
+.node .tag{
+  position:absolute; right:10px; top:10px;
+  font-size:12px; color:var(--muted);
+  background: rgba(0,0,0,.22);
+  border:1px solid rgba(255,255,255,.07);
+  padding:4px 8px;
+  border-radius:999px;
+}
+.node .name{font-weight:900}
+.node .meta{color:var(--muted); font-size:12px; margin-top:6px; line-height:1.35}
+.badge{
+  display:inline-block;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:12px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.18);
+  margin-right:6px;
+  margin-top:8px;
+}
+
+.hint{margin-top:10px; color:var(--muted); font-size:12px}
+
 .small{font-size:12px}
 .muted{color:var(--muted)}
 .footer{margin-top:14px; padding:8px 2px}
@@ -193,7 +203,7 @@ body{
   width:min(980px, 100%);
   max-height: min(760px, 92vh);
   overflow:auto;
-  background: linear-gradient(180deg, rgba(18,25,34,.98), rgba(12,16,22,.98));
+  background: linear-gradient(180deg, rgba(15,28,43,.98), rgba(7,16,25,.98));
   border:1px solid rgba(255,255,255,.10);
   border-radius:18px;
   box-shadow:var(--shadow);
@@ -202,6 +212,7 @@ body{
 .modalHead{display:flex; align-items:center; justify-content:space-between; gap:10px}
 .modalHead h3{margin:0; font-size:16px}
 .modalFoot{display:flex; justify-content:flex-end; gap:10px; margin-top:12px; align-items:center}
+
 .twoCols{
   display:grid;
   grid-template-columns: 1fr 1fr;
@@ -226,14 +237,13 @@ body{
   cursor:pointer;
 }
 .item:last-child{margin-bottom:0}
-.item:hover{outline:2px solid rgba(125,211,252,.15)}
+.item:hover{outline:2px solid rgba(96,165,250,.15)}
 .item .left{display:flex; gap:10px}
 .item .emoji{font-size:22px}
 .item .title{font-weight:900}
 .item .desc{color:var(--muted); font-size:12px; margin-top:2px; line-height:1.35}
 .item .count{
   font-weight:900;
-  color:var(--text);
   background: rgba(0,0,0,.22);
   border:1px solid rgba(255,255,255,.08);
   padding:4px 10px;
@@ -241,21 +251,16 @@ body{
   height:fit-content;
 }
 
-.breedingGrid{
-  display:grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap:12px;
-  margin-top:10px;
-}
-.breedBox{
+.infoBox{
   border:1px solid rgba(255,255,255,.08);
   background: rgba(0,0,0,.16);
   border-radius:16px;
   padding:10px;
+  min-height:120px;
+  color:var(--text);
+  line-height:1.4;
 }
-.breedBox.wide{grid-column: 1 / -1}
-.breedTitle{font-weight:900}
-.breedPick{margin-top:8px; font-weight:800}
+
 .log{
   border:1px solid rgba(255,255,255,.08);
   background: rgba(0,0,0,.16);
@@ -271,7 +276,7 @@ body{
 @media (max-width: 900px){
   .main{flex-direction:column}
   .actionsGrid{grid-template-columns:1fr}
-  .garden{grid-template-columns:repeat(2, minmax(0, 1fr))}
+  .map{grid-template-columns:1fr}
   .twoCols{grid-template-columns:1fr}
-  .breedingGrid{grid-template-columns:1fr}
+  .kvGrid{grid-template-columns:1fr 1fr}
 }
