@@ -1,57 +1,175 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Морской бой</title>
-  <link rel="stylesheet" href="./style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Сад Мутаций</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
-    <header class="top">
-      <div>
-        <h1>⚓ Морской бой</h1>
-        <div class="sub">Ты vs ИИ • 10×10 • 10 кораблей</div>
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">🌱</div>
+        <div>
+          <div class="title">Сад Мутаций</div>
+          <div class="subtitle" id="dayHint">День: —</div>
+        </div>
       </div>
 
-      <div class="controls">
-        <button id="btnNew" class="btn">Новая игра</button>
-        <button id="btnRandom" class="btn btnGhost">Переразместить</button>
+      <div class="stats">
+        <div class="stat">
+          <div class="label">Пыльца</div>
+          <div class="value" id="pollen">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Энергия</div>
+          <div class="value"><span id="energy">0</span>/<span id="energyMax">0</span></div>
+        </div>
+        <button class="btn ghost" id="btnSave">💾</button>
+        <button class="btn ghost" id="btnReset" title="Сброс (с подтверждением)">↺</button>
       </div>
     </header>
 
     <main class="main">
       <section class="panel">
-        <h2>Твое поле</h2>
-        <div id="myGrid" class="grid" aria-label="Твое поле"></div>
-        <div class="hint">ИИ стреляет сюда</div>
-      </section>
+        <h2>Действия</h2>
 
-      <section class="panel">
-        <h2>Поле противника</h2>
-        <div id="enemyGrid" class="grid" aria-label="Поле противника"></div>
-        <div class="hint">Жми по клеткам, чтобы стрелять</div>
-      </section>
-
-      <aside class="side">
-        <div class="status" id="status">
-          <div class="badge" id="turnBadge">Твой ход</div>
-          <div class="score">
-            <div><span id="myLeft">10</span> кораблей у тебя</div>
-            <div><span id="enemyLeft">10</span> кораблей у ИИ</div>
+        <div class="tapZone">
+          <button class="btn big" id="btnTap">💧 Полить (тап)</button>
+          <div class="tapInfo">
+            Тапы дают <b>энергию</b> и немного <b>пыльцы</b>. Энергию тратим на посадку и скрещивание.
           </div>
         </div>
 
-        <div class="log" id="log"></div>
-
-        <div class="footer">
-          <button id="btnClose" class="btn btnGhost">Закрыть</button>
+        <div class="actionsGrid">
+          <button class="btn" id="btnOpenInventory">🎒 Инвентарь</button>
+          <button class="btn" id="btnOpenBreeding">🧬 Скрещивание</button>
+          <button class="btn" id="btnOpenLog">📜 Лог</button>
         </div>
-      </aside>
+
+        <div class="quest">
+          <div class="questHead">
+            <div>
+              <div class="questTitle">Задание дня</div>
+              <div class="questText" id="questText">—</div>
+            </div>
+            <div class="questReward">
+              <div class="label">Награда</div>
+              <div class="value" id="questReward">—</div>
+            </div>
+          </div>
+          <div class="questProgress">
+            <div class="bar"><div class="fill" id="questFill"></div></div>
+            <div class="small" id="questProgressText">—</div>
+          </div>
+          <button class="btn" id="btnClaimQuest" disabled>🏆 Забрать</button>
+        </div>
+      </section>
+
+      <section class="panel grow">
+        <h2>Теплица (6 грядок)</h2>
+        <div class="garden" id="garden"></div>
+
+        <div class="hint">
+          Нажми на грядку: посадка/ускорение/сбор. Созревает — собирай пыльцу и семена.
+        </div>
+      </section>
     </main>
+
+    <!-- Inventory Modal -->
+    <div class="modal" id="modalInventory" aria-hidden="true">
+      <div class="modalCard">
+        <div class="modalHead">
+          <h3>Инвентарь</h3>
+          <button class="btn ghost" data-close="modalInventory">✕</button>
+        </div>
+
+        <div class="twoCols">
+          <div>
+            <h4>Семена</h4>
+            <div class="list" id="seedList"></div>
+            <div class="small muted">Клик по семени — выбрать для посадки.</div>
+          </div>
+
+          <div>
+            <h4>Коллекция</h4>
+            <div class="list" id="collectionList"></div>
+            <div class="small muted">Собирай новые комбинации признаков (цвет/форма/аромат).</div>
+          </div>
+        </div>
+
+        <div class="modalFoot">
+          <div class="small muted" id="inventoryHint">—</div>
+          <button class="btn" data-close="modalInventory">Готово</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Breeding Modal -->
+    <div class="modal" id="modalBreeding" aria-hidden="true">
+      <div class="modalCard">
+        <div class="modalHead">
+          <h3>Скрещивание</h3>
+          <button class="btn ghost" data-close="modalBreeding">✕</button>
+        </div>
+
+        <div class="breedingGrid">
+          <div class="breedBox">
+            <div class="breedTitle">Родитель A</div>
+            <div class="breedPick" id="parentA">Не выбран</div>
+            <div class="small muted">Выбери растение из коллекции</div>
+          </div>
+
+          <div class="breedBox">
+            <div class="breedTitle">Родитель B</div>
+            <div class="breedPick" id="parentB">Не выбран</div>
+            <div class="small muted">Выбери другое растение</div>
+          </div>
+
+          <div class="breedBox">
+            <div class="breedTitle">Стоимость</div>
+            <div class="breedPick"><span id="breedCostEnergy">—</span> энергии + <span id="breedCostPollen">—</span> пыльцы</div>
+            <div class="small muted">Шанс мутации зависит от “мутации дня”.</div>
+          </div>
+
+          <div class="breedBox wide">
+            <div class="breedTitle">Выбор из коллекции</div>
+            <div class="list" id="breedCollectionList"></div>
+            <div class="small muted">Клик: выбрать A/B (переключается автоматически).</div>
+          </div>
+        </div>
+
+        <div class="modalFoot">
+          <div class="small muted" id="breedHint">—</div>
+          <button class="btn" id="btnBreed">🧬 Создать семя</button>
+          <button class="btn ghost" data-close="modalBreeding">Отмена</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log Modal -->
+    <div class="modal" id="modalLog" aria-hidden="true">
+      <div class="modalCard">
+        <div class="modalHead">
+          <h3>Лог событий</h3>
+          <button class="btn ghost" data-close="modalLog">✕</button>
+        </div>
+        <div class="log" id="log"></div>
+        <div class="modalFoot">
+          <button class="btn ghost" id="btnClearLog">Очистить</button>
+          <button class="btn" data-close="modalLog">Закрыть</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="small muted">
+        Советы: копи пыльцу → скрещивай редкие признаки → открывай новые комбинации в коллекции.
+      </div>
+    </footer>
   </div>
 
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="./game.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
