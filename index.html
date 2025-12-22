@@ -1,92 +1,129 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <title>SeaBattle UI</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SeaBattle — классика</title>
+
+  <!-- можно убрать, если хотите полностью оффлайн -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="app">
 
-<div id="app">
-
-  <!-- TOP BAR -->
-  <header class="topbar">
-    <button onclick="go('menu')">✕</button>
-    <span id="title">Морской бой — онлайн игра</span>
-    <button>⋯</button>
-  </header>
-
-  <!-- MENU -->
-  <section class="screen active" id="menu">
-    <div class="menu">
-      <button onclick="go('setup')">Онлайн игра</button>
-      <button>Настройки</button>
-      <button>Поделиться</button>
-      <button>Поддержка</button>
-    </div>
-  </section>
-
-  <!-- SETUP -->
-  <section class="screen" id="setup">
-    <h2>Расстановка</h2>
-
-    <div class="setupRow">
-      <div class="board">
-        <h3>Твоё поле</h3>
-        <div class="grid"></div>
+    <header class="topbar paper">
+      <div class="brand">
+        <div class="brand__title">SeaBattle</div>
+        <div class="brand__ver">Classic</div>
       </div>
 
-      <div class="fleet">
-        <h3>Флот</h3>
-        <div class="ship">4-палубный</div>
-        <div class="ship">3-палубный</div>
-        <div class="ship">2-палубный</div>
-        <div class="ship">1-палубный</div>
-        <button class="primary" onclick="go('lobby')">Далее</button>
+      <div class="topbar__right">
+        <button class="icon-btn" id="btnHelp" title="Помощь">?</button>
+        <button class="icon-btn" id="btnRestart" title="Заново">⟲</button>
       </div>
-    </div>
-  </section>
+    </header>
 
-  <!-- LOBBY -->
-  <section class="screen" id="lobby">
-    <h2>Игроки онлайн</h2>
+    <main class="layout">
+      <!-- Левая панель -->
+      <section class="panel paper">
+        <h2 class="panel__title">Топ</h2>
 
-    <div class="lobbyRow">
-      <div class="players">
-        <div class="player" onclick="startGame('user1')">user1</div>
-        <div class="player" onclick="startGame('user2')">user2</div>
-        <div class="player" onclick="startGame('user3')">user3</div>
-        <div class="player" onclick="startGame('user4')">user4</div>
-      </div поправ> 
+        <div class="tabs">
+          <button class="tab tab--active" type="button">Топ дня</button>
+          <button class="tab" type="button" disabled>Топ недели</button>
+          <button class="tab" type="button" disabled>Топ года</button>
+        </div>
 
-      <div class="chat">
-        <div class="messages">Общий чат</div>
-        <input placeholder="Сообщение">
+        <div class="leaderboard" id="leaderboard">
+          <div class="lb-row">
+            <div class="lb-rank">1</div>
+            <div class="lb-name">User 1</div>
+            <div class="lb-x">x5</div>
+          </div>
+          <div class="lb-row">
+            <div class="lb-rank">2</div>
+            <div class="lb-name">User 2</div>
+            <div class="lb-x">x3</div>
+          </div>
+          <div class="lb-row">
+            <div class="lb-rank">3</div>
+            <div class="lb-name">User 3</div>
+            <div class="lb-x">x2</div>
+          </div>
+          <div class="lb-row">
+            <div class="lb-rank">4</div>
+            <div class="lb-name">User 4</div>
+            <div class="lb-x">x1</div>
+          </div>
+          <div class="lb-row">
+            <div class="lb-rank">5</div>
+            <div class="lb-name">User 5</div>
+            <div class="lb-x">x1</div>
+          </div>
+        </div>
+
+        <div class="note">
+          Только классическая игра: флот 1×4, 2×3, 3×2, 4×1.
+        </div>
+      </section>
+
+      <!-- Центр -->
+      <section class="panel paper game">
+        <div class="game__head">
+          <div class="playerTag">
+            <div class="playerTag__label">Игрок</div>
+            <div class="playerTag__name" id="playerName">User</div>
+          </div>
+
+          <div class="status" id="status">Расстановка: нажми «Авто» или ставь вручную.</div>
+
+          <div class="controls">
+            <button class="btn" id="btnRotate" type="button">Повернуть</button>
+            <button class="btn" id="btnAuto" type="button">Авто</button>
+            <button class="btn btn--primary" id="btnStart" type="button">Старт</button>
+          </div>
+        </div>
+
+        <div class="boards">
+          <div class="boardWrap">
+            <div class="boardTitle">ТВОЁ ПОЛЕ</div>
+            <div class="board" id="playerBoard" aria-label="Поле игрока"></div>
+          </div>
+
+          <div class="boardWrap">
+            <div class="boardTitle">ПОЛЕ ПРОТИВНИКА</div>
+            <div class="board" id="enemyBoard" aria-label="Поле противника"></div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span class="dot dot--ship"></span> корабль
+          <span class="dot dot--hit"></span> попадание
+          <span class="dot dot--miss"></span> мимо
+        </div>
+      </section>
+    </main>
+
+    <!-- Модалка -->
+    <dialog class="modal paper" id="helpModal">
+      <h3>Как играть</h3>
+      <ul>
+        <li>Сначала расставь флот (клик по клетке ставит текущий корабль).</li>
+        <li>«Повернуть» — меняет ориентацию (гор/верт).</li>
+        <li>«Авто» — случайная расстановка.</li>
+        <li>«Старт» — начинаем бой. Стреляй по полю противника.</li>
+      </ul>
+      <div class="modal__actions">
+        <button class="btn btn--primary" id="btnCloseHelp" type="button">Ок</button>
       </div>
-    </div>
-  </section>
+    </dialog>
 
-  <!-- GAME -->
-  <section class="screen" id="game">
-    <h2 id="vs">Бой 1×1</h2>
+  </div>
 
-    <div class="battleRow">
-      <div class="board">
-        <h3>Твоё поле</h3>
-        <div class="grid"></div>
-      </div>
-
-      <div class="board">
-        <h3>Поле противника</h3>
-        <div class="grid"></div>
-      </div>
-    </div>
-  </section>
-
-</div>
-
-<script src="game.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
