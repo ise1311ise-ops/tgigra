@@ -1,46 +1,100 @@
 (() => {
-  // Русские буквы как на скрине (10 строк)
   const ROWS = ["А","Б","В","Г","Д","Е","Ж","З","И","К"];
   const COLS = [1,2,3,4,5,6,7,8,9,10];
-
-  // флот: длины кораблей
   const FLEET = [4,3,3,2,2,2,1,1,1,1];
 
-  const playerBoardEl = document.getElementById("playerBoard");
-  const enemyBoardEl  = document.getElementById("enemyBoard");
-  const statusEl      = document.getElementById("status");
+  // screens
+  const screens = {
+    menu: document.getElementById("screenMenu"),
+    top: document.getElementById("screenTop"),
+    placement: document.getElementById("screenPlacement"),
+    battle: document.getElementById("screenBattle"),
+    result: document.getElementById("screenResult"),
+  };
 
+  // global nav buttons
+  const btnHome = document.getElementById("btnHome");
+
+  // menu buttons
+  const btnGoPlacement = document.getElementById("btnGoPlacement");
+  const btnGoTop = document.getElementById("btnGoTop");
+  const btnMenuHelp = document.getElementById("btnMenuHelp");
+
+  // top screen
+  const btnBackFromTop = document.getElementById("btnBackFromTop");
+
+  // placement screen elements
+  const playerBoardEl = document.getElementById("playerBoard");
   const btnRotate = document.getElementById("btnRotate");
-  const btnAuto   = document.getElementById("btnAuto");
-  const btnStart  = document.getElementById("btnStart");
-  const btnRestart= document.getElementById("btnRestart");
-  const btnHelp   = document.getElementById("btnHelp");
+  const btnAuto = document.getElementById("btnAuto");
+  const btnStartBattle = document.getElementById("btnStartBattle");
+  const statusPlacement = document.getElementById("statusPlacement");
+  const btnBackFromPlacement = document.getElementById("btnBackFromPlacement");
+
+  // battle screen elements
+  const playerBoardBattleEl = document.getElementById("playerBoardBattle");
+  const enemyBoardEl = document.getElementById("enemyBoard");
+  const statusBattle = document.getElementById("statusBattle");
+  const btnRestart = document.getElementById("btnRestart");
+  const btnBackFromBattle = document.getElementById("btnBackFromBattle");
+
+  // result screen
+  const resultTitle = document.getElementById("resultTitle");
+  const resultText = document.getElementById("resultText");
+  const btnPlayAgain = document.getElementById("btnPlayAgain");
+  const btnResultHome = document.getElementById("btnResultHome");
+
+  // help
+  const btnHelp = document.getElementById("btnHelp");
   const helpModal = document.getElementById("helpModal");
   const btnCloseHelp = document.getElementById("btnCloseHelp");
 
-  // state
-  let phase = "placement"; // placement | battle | gameover
-  let orientation = "h";   // h | v
+  // --- state ---
+  let orientation = "h";
   let nextShipIndex = 0;
+  let phase = "placement"; // placement | battle | gameover
 
-  // grids store:
-  // 0 empty
-  // 1 ship
-  // 2 miss
-  // 3 hit
   const player = createGameState();
-  const enemy  = createGameState();
+  const enemy = createGameState();
 
-  // --- init UI ---
-  buildBoard(playerBoardEl, "player");
-  buildBoard(enemyBoardEl, "enemy");
+  const ai = {
+    targets: [],
+    tried: new Set()
+  };
 
-  renderAll();
+  // build boards
+  buildBoard(playerBoardEl);
+  buildBoard(playerBoardBattleEl);
+  buildBoard(enemyBoardEl);
+
+  // initial render
+  resetToMenu();
+
+  // --- navigation helpers ---
+  function showScreen(name){
+    Object.values(screens).forEach(s => s.classList.remove("screen--active"));
+    screens[name].classList.add("screen--active");
+  }
 
   // --- events ---
+  btnHome.addEventListener("click", () => resetToMenu());
+
+  btnGoPlacement.addEventListener("click", () => {
+    startPlacementFlow();
+  });
+
+  btnGoTop.addEventListener("click", () => showScreen("top"));
+  btnBackFromTop.addEventListener("click", () => showScreen("menu"));
+
+  btnMenuHelp.addEventListener("click", () => helpModal.showModal());
+  btnHelp.addEventListener("click", () => helpModal.showModal());
+  btnCloseHelp.addEventListener("click", () => helpModal.close());
+
+  btnBackFromPlacement.addEventListener("click", () => showScreen("menu"));
+
   btnRotate.addEventListener("click", () => {
     orientation = (orientation === "h" ? "v" : "h");
-    setStatus(`Ориентация: ${orientation === "h" ? "горизонтально" : "вертикально"}.`);
+    setPlacementStatus(`Ориентация: ${orientation === "h" ? "горизонтально" : "вертикально"}.`);
   });
 
   btnAuto.addEventListener("click", () => {
@@ -49,70 +103,63 @@
     nextShipIndex = 0;
     autoPlaceFleet(player);
     nextShipIndex = FLEET.length;
-    renderAll();
-    setStatus("Флот расставлен автоматически. Нажми «Старт».");
+    renderPlacement();
+    setPlacementStatus("Флот расставлен автоматически. Нажми «Старт».");
   });
 
-  btnStart.addEventListener("click", () => {
-    if (phase === "placement") {
-      if (!isFleetComplete(player)) {
-        setStatus("Сначала расставь весь флот (или нажми «Авто»).");
-        return;
-      }
-      // prepare enemy
-      clearGrid(enemy);
-      autoPlaceFleet(enemy);
-      phase = "battle";
-      lockPlacementUI();
-      setStatus("Бой начался! Стреляй по полю противника.");
-      renderAll();
+  btnStartBattle.addEventListener("click", () => {
+    if (!isFleetComplete(player)) {
+      setPlacementStatus("Сначала расставь весь флот (или нажми «Авто»).");
       return;
     }
-
-    if (phase === "gameover") {
-      resetGame();
-    }
+    startBattleFlow();
   });
 
-  btnRestart.addEventListener("click", () => resetGame());
+  btnRestart.addEventListener("click", () => {
+    startPlacementFlow();
+  });
 
-  btnHelp.addEventListener("click", () => helpModal.showModal());
-  btnCloseHelp.addEventListener("click", () => helpModal.close());
+  btnBackFromBattle.addEventListener("click", () => {
+    // "Сдаться" -> результат
+    finishGame(false, true);
+  });
 
-  // cell clicks delegated
+  btnPlayAgain.addEventListener("click", () => startPlacementFlow());
+  btnResultHome.addEventListener("click", () => resetToMenu());
+
+  // placement clicks
   playerBoardEl.addEventListener("click", (e) => {
     const cell = e.target.closest("[data-cell]");
     if (!cell) return;
-    const x = +cell.dataset.x;
-    const y = +cell.dataset.y;
-
     if (phase !== "placement") return;
 
-    // manual placement
     if (nextShipIndex >= FLEET.length) {
-      setStatus("Флот уже расставлен. Нажми «Старт».");
+      setPlacementStatus("Флот уже расставлен. Нажми «Старт».");
       return;
     }
 
+    const x = +cell.dataset.x;
+    const y = +cell.dataset.y;
     const len = FLEET[nextShipIndex];
+
     if (placeShip(player, x, y, len, orientation)) {
       nextShipIndex++;
-      renderAll();
+      renderPlacement();
 
       if (nextShipIndex >= FLEET.length) {
-        setStatus("Флот расставлен. Нажми «Старт».");
+        setPlacementStatus("Флот расставлен. Нажми «Старт».");
       } else {
-        setStatus(`Поставь корабль длиной ${FLEET[nextShipIndex]}. (${nextShipIndex+1}/${FLEET.length})`);
+        setPlacementStatus(`Поставь корабль длиной ${FLEET[nextShipIndex]}. (${nextShipIndex+1}/${FLEET.length})`);
       }
     } else {
-      setStatus("Нельзя поставить сюда: пересечение/касание/выход за поле.");
+      setPlacementStatus("Нельзя поставить сюда: пересечение/касание/выход за поле.");
     }
   });
 
+  // battle clicks (enemy shots)
   enemyBoardEl.addEventListener("click", (e) => {
     const cell = e.target.closest("[data-cell]");
     if (!cell) return;
-
     if (phase !== "battle") return;
 
     const x = +cell.dataset.x;
@@ -122,55 +169,101 @@
     if (enemy.grid[y][x] === 2 || enemy.grid[y][x] === 3) return;
 
     const hit = shoot(enemy, x, y);
-    renderAll();
+    renderBattle();
 
     if (isAllSunk(enemy)) {
-      phase = "gameover";
-      setStatus("Победа! Нажми «Старт», чтобы сыграть ещё раз.");
-      btnStart.textContent = "Ещё раз";
+      finishGame(true, false);
       return;
     }
 
     if (!hit) {
-      // AI turn
-      setStatus("Мимо. Ход противника...");
-      setTimeout(() => {
-        aiTurn();
-      }, 450);
+      setBattleStatus("Мимо. Ход противника...");
+      setTimeout(aiTurn, 380);
     } else {
-      setStatus("Попадание! Стреляй ещё.");
+      setBattleStatus("Попадание! Стреляй ещё.");
     }
   });
 
-  // --- functions ---
-  function createGameState() {
-    return {
-      grid: Array.from({ length: 10 }, () => Array(10).fill(0)),
-      ships: [] // {cells:[{x,y}], hits:Set("x,y")}
-    };
+  // --- flow ---
+  function resetToMenu(){
+    showScreen("menu");
   }
 
-  function clearGrid(state) {
-    state.grid = Array.from({ length: 10 }, () => Array(10).fill(0));
-    state.ships = [];
+  function startPlacementFlow(){
+    phase = "placement";
+    orientation = "h";
+    nextShipIndex = 0;
+
+    clearGrid(player);
+    clearGrid(enemy);
+
+    ai.targets = [];
+    ai.tried = new Set();
+
+    renderPlacement();
+    setPlacementStatus(`Поставь корабль длиной ${FLEET[nextShipIndex]}. (1/${FLEET.length})`);
+    showScreen("placement");
   }
 
-  function buildBoard(container, type) {
+  function startBattleFlow(){
+    phase = "battle";
+
+    clearGrid(enemy);
+    autoPlaceFleet(enemy);
+
+    // сброс AI
+    ai.targets = [];
+    ai.tried = new Set();
+
+    renderBattle();
+    setBattleStatus("Бой начался! Стреляй по полю противника.");
+    showScreen("battle");
+  }
+
+  function finishGame(playerWon, surrendered){
+    phase = "gameover";
+    showScreen("result");
+
+    if (surrendered) {
+      resultTitle.textContent = "Сдался 😅";
+      resultText.textContent = "Игра остановлена. Хочешь попробовать ещё раз?";
+      return;
+    }
+
+    if (playerWon) {
+      resultTitle.textContent = "Победа! 🏆";
+      resultText.textContent = "Ты потопил весь флот противника.";
+    } else {
+      resultTitle.textContent = "Поражение";
+      resultText.textContent = "Твой флот потоплен. Попробуем ещё раз?";
+    }
+  }
+
+  // --- rendering ---
+  function renderPlacement(){
+    renderBoard(playerBoardEl, player, { showShips: true, disable: false });
+  }
+
+  function renderBattle(){
+    renderBoard(playerBoardBattleEl, player, { showShips: true, disable: true });
+    renderBoard(enemyBoardEl, enemy, { showShips: false, disable: false });
+  }
+
+  function setPlacementStatus(text){ statusPlacement.textContent = text; }
+  function setBattleStatus(text){ statusBattle.textContent = text; }
+
+  // --- board builder ---
+  function buildBoard(container) {
     container.innerHTML = "";
     const gridEl = document.createElement("div");
     gridEl.className = "grid";
 
-    // corner
     gridEl.appendChild(makeHdr(""));
 
-    // top headers 1..10
     COLS.forEach(n => gridEl.appendChild(makeHdr(String(n))));
 
-    // rows
     for (let y = 0; y < 10; y++) {
-      // left header
       gridEl.appendChild(makeHdr(ROWS[y]));
-
       for (let x = 0; x < 10; x++) {
         const btn = document.createElement("button");
         btn.className = "cell";
@@ -179,20 +272,11 @@
         btn.dataset.x = String(x);
         btn.dataset.y = String(y);
         btn.setAttribute("aria-label", `${ROWS[y]}${x+1}`);
-
-        // enemy cells should be focusable too
         gridEl.appendChild(btn);
       }
     }
 
     container.appendChild(gridEl);
-
-    // hint text
-    if (type === "enemy") {
-      container.title = "Стреляй по клеткам";
-    } else {
-      container.title = "Расстановка флота";
-    }
   }
 
   function makeHdr(text) {
@@ -200,11 +284,6 @@
     d.className = "hdr";
     d.textContent = text;
     return d;
-  }
-
-  function renderAll() {
-    renderBoard(playerBoardEl, player, { showShips: true, disableShots: true });
-    renderBoard(enemyBoardEl, enemy, { showShips: false, disableShots: (phase !== "battle") });
   }
 
   function renderBoard(container, state, opts) {
@@ -216,58 +295,36 @@
       c.classList.remove("ship","hit","miss","cell--disabled");
       c.innerHTML = "";
 
+      if (opts.disable) c.classList.add("cell--disabled");
+
       const v = state.grid[y][x];
-      const isShip = (v === 1);
-      const isMiss = (v === 2);
-      const isHit  = (v === 3);
+      if (opts.showShips && v === 1) c.classList.add("ship");
 
-      if (opts.disableShots) c.classList.add("cell--disabled");
-
-      if (opts.showShips && isShip) c.classList.add("ship");
-
-      if (isMiss) {
+      if (v === 2) {
         c.classList.add("miss");
         c.innerHTML = `<span class="mark">•</span>`;
       }
-      if (isHit) {
+      if (v === 3) {
         c.classList.add("hit");
         c.innerHTML = `<span class="mark">✕</span>`;
       }
     });
   }
 
-  function setStatus(text) {
-    statusEl.textContent = text;
+  // --- game state helpers ---
+  function createGameState() {
+    return {
+      grid: Array.from({ length: 10 }, () => Array(10).fill(0)),
+      ships: []
+    };
   }
 
-  function lockPlacementUI() {
-    btnAuto.disabled = true;
-    btnRotate.disabled = true;
-    btnStart.textContent = "Игра...";
+  function clearGrid(state) {
+    state.grid = Array.from({ length: 10 }, () => Array(10).fill(0));
+    state.ships = [];
   }
 
-  function unlockPlacementUI() {
-    btnAuto.disabled = false;
-    btnRotate.disabled = false;
-    btnStart.textContent = "Старт";
-  }
-
-  function resetGame() {
-    phase = "placement";
-    orientation = "h";
-    nextShipIndex = 0;
-
-    clearGrid(player);
-    clearGrid(enemy);
-
-    unlockPlacementUI();
-    btnStart.textContent = "Старт";
-    setStatus("Расстановка: нажми «Авто» или ставь вручную.");
-    renderAll();
-  }
-
-  // --- placement rules ---
-  // Запрещаем не только пересечение, но и касание по диагонали/стороне (классика)
+  // placement rules (без касаний)
   function canPlace(state, x, y, len, orient) {
     const dx = orient === "h" ? 1 : 0;
     const dy = orient === "v" ? 1 : 0;
@@ -276,7 +333,6 @@
     const endY = y + dy * (len - 1);
     if (endX < 0 || endX > 9 || endY < 0 || endY > 9) return false;
 
-    // check each cell and its neighbors
     for (let i = 0; i < len; i++) {
       const cx = x + dx*i;
       const cy = y + dy*i;
@@ -290,7 +346,6 @@
         }
       }
     }
-
     return true;
   }
 
@@ -307,7 +362,6 @@
       state.grid[cy][cx] = 1;
       cells.push({ x: cx, y: cy });
     }
-
     state.ships.push({ cells, hits: new Set() });
     return true;
   }
@@ -325,7 +379,6 @@
       }
 
       if (!placed) {
-        // редкий фейл — перегенерим всё
         clearGrid(state);
         return autoPlaceFleet(state);
       }
@@ -336,7 +389,6 @@
     return state.ships.length === FLEET.length;
   }
 
-  // --- shooting ---
   function shoot(state, x, y) {
     const v = state.grid[y][x];
     if (v === 2 || v === 3) return false;
@@ -346,10 +398,9 @@
       const ship = findShipByCell(state, x, y);
       if (ship) ship.hits.add(`${x},${y}`);
       return true;
-    } else {
-      state.grid[y][x] = 2;
-      return false;
     }
+    state.grid[y][x] = 2;
+    return false;
   }
 
   function findShipByCell(state, x, y) {
@@ -363,67 +414,47 @@
     return state.ships.every(s => s.hits.size === s.cells.length);
   }
 
-  // --- AI ---
-  // Простой "hunt/target": если попал — добивает вокруг
-  const ai = {
-    mode: "hunt",
-    targets: [], // stack of {x,y}
-    tried: new Set()
-  };
-
+  // --- AI (hunt/target) ---
   function aiTurn() {
     if (phase !== "battle") return;
 
-    let shotCell = null;
+    let shot = null;
 
-    // target mode
     while (ai.targets.length) {
       const t = ai.targets.pop();
+      if (!inBounds(t.x,t.y)) continue;
       const key = `${t.x},${t.y}`;
-      if (t.x<0 || t.x>9 || t.y<0 || t.y>9) continue;
       if (ai.tried.has(key)) continue;
-      shotCell = t;
-      break;
+      shot = t; break;
     }
 
-    // hunt mode
-    if (!shotCell) {
-      ai.mode = "hunt";
-      shotCell = pickRandomUntried();
-    }
+    if (!shot) shot = pickRandomUntried();
 
-    const key = `${shotCell.x},${shotCell.y}`;
-    ai.tried.add(key);
+    ai.tried.add(`${shot.x},${shot.y}`);
 
-    const hit = shoot(player, shotCell.x, shotCell.y);
-    renderAll();
+    const hit = shoot(player, shot.x, shot.y);
+    renderBattle();
 
     if (isAllSunk(player)) {
-      phase = "gameover";
-      btnStart.textContent = "Ещё раз";
-      setStatus("Поражение. Нажми «Старт», чтобы сыграть ещё раз.");
+      finishGame(false, false);
       return;
     }
 
     if (hit) {
-      setStatus("Противник попал! Его ход продолжается...");
-      // add neighbors for targeting
-      ai.mode = "target";
+      setBattleStatus("Противник попал! Его ход продолжается...");
       ai.targets.push(
-        {x: shotCell.x+1, y: shotCell.y},
-        {x: shotCell.x-1, y: shotCell.y},
-        {x: shotCell.x, y: shotCell.y+1},
-        {x: shotCell.x, y: shotCell.y-1},
+        {x: shot.x+1, y: shot.y},
+        {x: shot.x-1, y: shot.y},
+        {x: shot.x, y: shot.y+1},
+        {x: shot.x, y: shot.y-1},
       );
-      // противник стреляет ещё раз
-      setTimeout(aiTurn, 450);
+      setTimeout(aiTurn, 380);
     } else {
-      setStatus("Ход твой.");
+      setBattleStatus("Ход твой.");
     }
   }
 
   function pickRandomUntried() {
-    // немного лучше — случай по "шахматке" для эффективности, но оставим простым
     let guard = 0;
     while (guard++ < 5000) {
       const x = Math.floor(Math.random()*10);
@@ -433,7 +464,6 @@
         return {x,y};
       }
     }
-    // fallback
     for (let y=0;y<10;y++){
       for (let x=0;x<10;x++){
         const key = `${x},${y}`;
@@ -443,6 +473,5 @@
     return {x:0,y:0};
   }
 
-  // init manual placement hint
-  setStatus(`Поставь корабль длиной ${FLEET[nextShipIndex]}. (1/${FLEET.length})`);
+  function inBounds(x,y){ return x>=0 && x<=9 && y>=0 && y<=9; }
 })();
