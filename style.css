@@ -17,8 +17,6 @@ body{
   margin:0;
   font-family: "Patrick Hand", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--ink2);
-
-  /* тетрадный фон */
   background:
     linear-gradient(to right, var(--grid) 1px, transparent 1px) 0 0/32px 32px,
     linear-gradient(to bottom, var(--grid) 1px, transparent 1px) 0 0/32px 32px,
@@ -38,8 +36,6 @@ body{
   box-shadow: 0 10px 30px var(--shadow);
   position: relative;
 }
-
-/* имитация «неровной» рамки */
 .paper:before{
   content:"";
   position:absolute; inset:-7px;
@@ -72,87 +68,127 @@ body{
 }
 .icon-btn:active{ transform: translateY(1px); }
 
-.layout{
-  display:grid;
-  grid-template-columns: 320px 1fr;
-  gap: 14px;
+.screens{
+  position: relative;
+  min-height: calc(100vh - 120px);
 }
 
-.panel{
+/* экраны по отдельности + переход */
+.screen{
+  display:none;
+  animation: screenIn .18s ease-out;
+}
+.screen--active{
+  display:block;
+}
+@keyframes screenIn{
+  from{ opacity:0; transform: translateY(6px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+
+.screenCard{
   padding: 14px;
-}
-.panel__title{
-  margin: 0 0 10px 0;
-  font-size: 26px;
+  min-height: 560px;
 }
 
-.tabs{
-  display:flex;
-  gap:10px;
-  margin: 6px 0 12px 0;
-}
-.tab{
-  border: 3px solid var(--ink);
-  background: rgba(255,255,255,.8);
-  border-radius: 14px;
-  padding: 8px 12px;
-  font-family: inherit;
-  font-size: 18px;
-  color: var(--ink2);
-}
-.tab--active{
-  background: rgba(255,255,255,.95);
-}
-.tab:disabled{
-  opacity: .45;
-}
-
-.leaderboard{
+.center{
   display:flex;
   flex-direction:column;
-  gap: 10px;
-}
-.lb-row{
-  display:grid;
-  grid-template-columns: 34px 1fr 48px;
+  justify-content:center;
   align-items:center;
-  gap: 10px;
-  border: 3px solid var(--ink);
-  border-radius: 14px;
-  padding: 8px 10px;
-  background: rgba(255,255,255,.8);
+  text-align:center;
+  gap: 12px;
 }
-.lb-rank{
-  width: 30px; height: 30px;
-  border: 3px solid var(--ink);
-  border-radius: 10px;
+
+.screenHeader{
   display:flex;
   align-items:center;
-  justify-content:center;
+  justify-content:space-between;
+  gap: 12px;
+  margin-bottom: 10px;
 }
-.lb-name{ font-size: 20px; }
-.lb-x{ text-align:right; font-size: 20px; opacity:.9; }
+
+.h2{
+  margin:0;
+  font-size: 28px;
+}
 
 .note{
-  margin-top: 14px;
+  margin-top: 10px;
   border-top: 2px dashed rgba(43,47,127,.35);
   padding-top: 12px;
   font-size: 18px;
-  opacity: .9;
+  opacity: .92;
 }
 
-.game{
-  min-height: 620px;
+.btn{
+  border: 3px solid var(--ink);
+  background: rgba(255,255,255,.85);
+  border-radius: 14px;
+  padding: 9px 12px;
+  font-family: inherit;
+  font-size: 18px;
+  cursor:pointer;
+  color: var(--ink2);
 }
+.btn:active{ transform: translateY(1px); }
+.btn--primary{ background: rgba(43,47,127,.10); }
+.btnBig{ font-size: 22px; padding: 12px 14px; width: min(320px, 90%); }
 
-.game__head{
-  display:grid;
-  grid-template-columns: 180px 1fr auto;
+.menuBtns{
+  display:flex;
+  flex-direction:column;
   gap: 12px;
   align-items:center;
-  margin-bottom: 12px;
+  margin-top: 14px;
 }
 
+.menuArt{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap: 20px;
+  margin: 14px 0 10px;
+  min-height: 180px;
+}
+.menuArt__ship{
+  width: 260px; height: 180px;
+  border: 3px dashed rgba(43,47,127,.35);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 70% 35%, rgba(43,47,127,.18) 0 10px, transparent 11px),
+    radial-gradient(circle at 55% 55%, rgba(43,47,127,.18) 0 9px, transparent 10px),
+    linear-gradient(135deg, rgba(43,47,127,.10), rgba(255,255,255,0));
+  position:relative;
+}
+.menuArt__ship:after{
+  content:"кораблик";
+  position:absolute;
+  left: 12px; bottom: 10px;
+  opacity:.7;
+}
+.menuArt__lighthouse{
+  width: 180px; height: 180px;
+  border: 3px dashed rgba(43,47,127,.35);
+  border-radius: 18px;
+  background:
+    linear-gradient(0deg, rgba(43,47,127,.14), rgba(255,255,255,0));
+  position:relative;
+}
+.menuArt__lighthouse:after{
+  content:"маяк";
+  position:absolute;
+  left: 12px; bottom: 10px;
+  opacity:.7;
+}
+
+.gameHead{
+  display:grid;
+  grid-template-columns: 220px 1fr auto;
+  gap: 12px;
+  align-items:center;
+  margin: 8px 0 12px;
+}
 .playerTag{
   border: 3px solid var(--ink);
   border-radius: 14px;
@@ -176,28 +212,48 @@ body{
   flex-wrap:wrap;
   justify-content:flex-end;
 }
-.btn{
-  border: 3px solid var(--ink);
-  background: rgba(255,255,255,.85);
-  border-radius: 14px;
-  padding: 9px 12px;
-  font-family: inherit;
-  font-size: 18px;
-  cursor:pointer;
-  color: var(--ink2);
-}
-.btn:active{ transform: translateY(1px); }
-.btn--primary{
-  background: rgba(43,47,127,.10);
-}
 
-.boards{
+.leaderboard{
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.lb-row{
   display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  align-items:start;
+  grid-template-columns: 34px 1fr 48px;
+  align-items:center;
+  gap: 10px;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,.8);
 }
+.lb-rank{
+  width: 30px; height: 30px;
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.lb-name{ font-size: 20px; }
+.lb-x{ text-align:right; font-size: 20px; opacity:.9; }
 
+/* BOARDS: всегда горизонтально */
+.boards{
+  display:flex;
+  gap: 14px;
+  align-items:flex-start;
+  overflow-x: auto;            /* если экран узкий — скроллим вправо */
+  padding-bottom: 6px;
+}
+.boards--single{
+  overflow-x: hidden;
+}
+.boardWrap{
+  flex: 0 0 auto;
+}
 .boardTitle{
   font-size: 20px;
   margin: 6px 0 8px 0;
@@ -205,12 +261,11 @@ body{
 }
 
 .board{
-  position: relative;
   border: 3px solid var(--ink);
   border-radius: 16px;
   padding: 10px;
   background: rgba(255,255,255,.72);
-  overflow:auto;
+  overflow: auto;
 }
 
 /* сетка 10x10 + подписи */
@@ -218,8 +273,6 @@ body{
   display:grid;
   grid-template-columns: 26px repeat(10, var(--cell));
   grid-template-rows: 26px repeat(10, var(--cell));
-  gap: 0;
-  user-select:none;
 }
 
 .hdr{
@@ -241,18 +294,13 @@ body{
   cursor:pointer;
   background: rgba(255,255,255,.35);
 }
-.cell:hover{
-  background: rgba(43,47,127,.06);
-}
+.cell:hover{ background: rgba(43,47,127,.06); }
 .cell:focus{
   outline: 3px dashed rgba(43,47,127,.55);
   outline-offset: -3px;
 }
 
-.cell--disabled{
-  cursor: not-allowed;
-  opacity: .75;
-}
+.cell--disabled{ cursor: not-allowed; opacity: .75; }
 
 .mark{
   font-size: 22px;
@@ -297,19 +345,16 @@ body{
   width: min(520px, 92vw);
   padding: 14px 16px;
 }
-.modal::backdrop{
-  background: rgba(0,0,0,.25);
-}
+.modal::backdrop{ background: rgba(0,0,0,.25); }
 .modal__actions{
   display:flex;
   justify-content:flex-end;
   margin-top: 12px;
 }
 
-@media (max-width: 980px){
-  .layout{ grid-template-columns: 1fr; }
-  .game__head{ grid-template-columns: 1fr; }
+/* на маленьких экранах уменьшаем клетку, но НЕ меняем горизонтальность */
+@media (max-width: 520px){
+  :root{ --cell: 30px; }
+  .gameHead{ grid-template-columns: 1fr; }
   .controls{ justify-content:flex-start; }
-  .boards{ grid-template-columns: 1fr; }
-  :root{ --cell: 32px; }
 }
