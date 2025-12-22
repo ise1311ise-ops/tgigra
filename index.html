@@ -2,220 +2,193 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <!-- Важно для Telegram WebView + безопасные области -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Морской бой — онлайн игра</title>
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
-  <!-- TOPBAR -->
-  <header class="topbar">
-    <button class="iconBtn" id="btnBack" aria-label="Назад">✕</button>
-    <div class="topTitle" id="topTitle">Морской Бой — онлайн игра</div>
-    <button class="iconBtn" id="btnMenu" aria-label="Меню">⋯</button>
-  </header>
+  <div id="appRoot">
+    <!-- Верхняя панель (фикс) -->
+    <header class="topbar">
+      <button class="iconBtn" id="btnBack" title="Назад" aria-label="Назад">✕</button>
+      <div class="topTitle" id="topTitle">Морской бой — онлайн игра</div>
+      <button class="iconBtn" id="btnMenu" title="Меню" aria-label="Меню">⋯</button>
+    </header>
 
-  <!-- STAGE CENTER -->
-  <main class="app">
-    <div class="stageCenter">
-      <!-- ВАЖНО: stageWrap — реальный размер под масштаб (JS), stage — масштабируется transform -->
-      <div id="stageWrap" class="stageWrap">
-        <div id="stage" class="stage">
+    <!-- Масштабируемая сцена (чтобы ВСЁ влезало в TG без скролла) -->
+    <main class="stageWrap">
+      <div id="stage" class="stage">
+        <!-- SCREEN: MAIN -->
+        <section class="screen" id="screen-main" data-screen="main">
+          <div class="paper">
+            <div class="mainLayout">
+              <div class="doodleLeft">
+                <div class="shipSketch"></div>
+              </div>
 
-          <!-- SCREEN: HOME -->
-          <section class="screen active" id="screen-home" aria-label="Главный экран">
-            <div class="paper paperHome">
-              <div class="homeArtLeft"></div>
-              <div class="homeArtRight"></div>
+              <div class="menuCard">
+                <button class="menuBtn primary" id="goOnline">Онлайн игра</button>
+                <button class="menuBtn" id="goSettings">Настройки</button>
+                <button class="menuBtn" id="goShare">Поделиться</button>
+                <button class="menuBtn" id="goHelp">Поддержка</button>
+                <div class="versionNote">v0.2 • пока без реального онлайна (макет UI под Telegram)</div>
+              </div>
 
-              <div class="homeMenu">
-                <button class="btnPaper big" id="goOnline">Онлайн игра <span class="pill" id="onlinePill">119</span></button>
-                <button class="btnPaper big" id="goSettings">Настройки</button>
-                <button class="btnPaper big" id="goShare">Поделиться</button>
-                <button class="btnPaper big" id="goSupport">Поддержка</button>
-                <div class="ver">v0.2 • пока без реального онлайна (только макет UI)</div>
+              <div class="doodleRight">
+                <div class="lighthouseSketch"></div>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <!-- SCREEN: SETTINGS (placeholder) -->
-          <section class="screen" id="screen-settings" aria-label="Настройки">
-            <div class="paper paperModal">
-              <div class="modalHead">
-                <div class="modalTitle">Настройки</div>
-                <button class="btnPaper small" data-nav="back">Ок</button>
-              </div>
-              <div class="modalBody">
-                <div class="row">
-                  <div class="label">Звук</div>
-                  <div class="fakeToggle on"></div>
-                </div>
-                <div class="row">
-                  <div class="label">Подсказки</div>
-                  <div class="fakeToggle on"></div>
-                </div>
-                <div class="row">
-                  <div class="label">Тема</div>
-                  <div class="fakeSelect">Тетрадь</div>
-                </div>
-                <div class="hint">
-                  Это макет UI. Настройки пока не влияют на игру.
-                </div>
+        <!-- SCREEN: PLACEMENT -->
+        <section class="screen hidden" id="screen-place" data-screen="place">
+          <div class="paper">
+            <div class="placeHeader">
+              <div class="placeTitle">Расстановка</div>
+              <div class="placeControls">
+                <button class="miniBtn" id="btnHome">⌂</button>
+                <button class="miniBtn" id="btnRotate">Повернуть: <b id="rotLabel">Гориз.</b></button>
+                <button class="miniBtn" id="btnAuto">Авто</button>
+                <button class="miniBtn primary" id="btnStart" disabled>Старт</button>
               </div>
             </div>
-          </section>
 
-          <!-- SCREEN: SHARE (placeholder) -->
-          <section class="screen" id="screen-share" aria-label="Поделиться">
-            <div class="paper paperModal">
-              <div class="modalHead">
-                <div class="modalTitle">Поделиться</div>
-                <button class="btnPaper small" data-nav="back">Ок</button>
-              </div>
-              <div class="modalBody">
-                <div class="hint">Скопируй ссылку и отправь другу:</div>
-                <div class="copyBox">
-                  <input id="shareLink" readonly />
-                  <button class="btnPaper small" id="copyLink">Копировать</button>
+            <div class="placeGrid">
+              <!-- Поле -->
+              <div class="panel">
+                <div class="panelTitle">
+                  <div class="bigInk">Твоё поле</div>
+                  <div class="hint">Тапни корабль справа → тапни по клетке</div>
                 </div>
-                <div class="hint tiny" id="copyStatus"></div>
+                <div class="boardWrap">
+                  <div id="myBoard" class="board"></div>
+                </div>
               </div>
-            </div>
-          </section>
 
-          <!-- SCREEN: SUPPORT (placeholder) -->
-          <section class="screen" id="screen-support" aria-label="Поддержка">
-            <div class="paper paperModal">
-              <div class="modalHead">
-                <div class="modalTitle">Поддержка</div>
-                <button class="btnPaper small" data-nav="back">Ок</button>
-              </div>
-              <div class="modalBody">
-                <div class="hint">
-                  Расстановка: выбери корабль → тапни по клетке на поле. Кнопка «Повернуть» меняет ориентацию.
+              <!-- Флот -->
+              <div class="panel">
+                <div class="panelTitle">
+                  <div class="bigInk">Флот</div>
+                  <div class="hint">Выбери корабль → поставь</div>
                 </div>
-                <div class="hint">
-                  Онлайн: выбери игрока в зале — откроется экран боя 1х1 (макет).
+
+                <div class="fleet" id="fleet"></div>
+
+                <div class="legend">
+                  <span class="dot ship"></span> корабль
+                  <span class="dot block"></span> нельзя рядом
                 </div>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <!-- SCREEN: SETUP -->
-          <section class="screen" id="screen-setup" aria-label="Расстановка">
-            <div class="paper paperSetup">
-              <div class="setupTop">
-                <div class="setupTitle">Расстановка</div>
+        <!-- SCREEN: LOBBY -->
+        <section class="screen hidden" id="screen-lobby" data-screen="lobby">
+          <div class="paper">
+            <div class="lobbyHeader">
+              <div class="placeTitle">Игровой зал</div>
+              <div class="lobbyControls">
+                <button class="miniBtn" id="btnLobbyHome">⌂</button>
+                <button class="miniBtn" id="btnChat">Чат</button>
+              </div>
+            </div>
 
-                <div class="setupBtns">
-                  <button class="btnPaper" id="btnRotate">Повернуть: <b id="rotLabel">Гориз.</b></button>
-                  <button class="btnPaper" id="btnAuto">Авто</button>
-                  <button class="btnPaper primary" id="btnSetupDone">Старт</button>
+            <div class="lobbyBody">
+              <div class="panel">
+                <div class="panelTitle">
+                  <div class="bigInk">Онлайн игроки</div>
+                  <div class="hint">Нажми на игрока → дуэль 1×1</div>
                 </div>
+                <div class="usersGrid" id="usersGrid"></div>
               </div>
 
-              <div class="setupGrid">
-                <div class="boardCard">
-                  <div class="cardHead">
-                    <div class="h1">Твоё поле</div>
-                    <div class="h2">Тапни корабль → тапни по клетке</div>
-                  </div>
-                  <div class="boardWrap">
-                    <div class="axisTop" id="axisTop"></div>
-                    <div class="axisLeft" id="axisLeft"></div>
-                    <div class="board" id="myBoard" aria-label="Поле игрока"></div>
-                  </div>
+              <div class="panel">
+                <div class="panelTitle">
+                  <div class="bigInk">Инфо</div>
+                  <div class="hint">Это макет — без настоящего сервера</div>
                 </div>
-
-                <div class="fleetCard">
-                  <div class="cardHead">
-                    <div class="h1">Флот</div>
-                    <div class="h2">Выбери корабль → поставь</div>
-                  </div>
-                  <div class="fleet" id="fleet"></div>
-                  <div class="legend">
-                    <span class="dot ship"></span> корабль
-                    <span class="dot bad"></span> нельзя рядом
-                  </div>
+                <div class="infoBox">
+                  <p><b>Комната общая.</b> Список слева — это <b>игроки онлайн</b>.</p>
+                  <p>Чат открывается кнопкой <b>“Чат”</b> сверху.</p>
+                  <p>Дальше можно подключить Firebase/WebSocket — UI уже готов.</p>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
 
-          <!-- SCREEN: LOBBY -->
-          <section class="screen" id="screen-lobby" aria-label="Игровой зал">
-            <div class="paper paperLobby">
-              <div class="lobbyHead">
-                <div class="lobbyTitle">Игровой зал (<span id="onlineCount">12</span>)</div>
-                <div class="lobbyBtns">
-                  <button class="btnPaper" id="btnChat">Чат</button>
-                  <button class="btnPaper" id="btnHideChat" style="display:none;">Скрыть чат</button>
-                </div>
+          <!-- Chat drawer -->
+          <div class="drawer hidden" id="chatDrawer" aria-hidden="true">
+            <div class="drawerCard">
+              <div class="drawerTop">
+                <div class="bigInk">Чат</div>
+                <button class="miniBtn" id="btnChatClose">✕</button>
               </div>
-
-              <div class="lobbyBody">
-                <div class="players" id="players"></div>
-
-                <aside class="chat" id="chat" aria-label="Чат">
-                  <div class="chatHead">
-                    <div>Чат</div>
-                    <button class="btnPaper small" id="btnChatClose">✕</button>
-                  </div>
-                  <div class="chatMsgs" id="chatMsgs"></div>
-                  <div class="chatInput">
-                    <input id="chatText" placeholder="Сообщение" />
-                    <button class="btnPaper small" id="chatSend">↵</button>
-                  </div>
-                </aside>
+              <div class="chatLog" id="chatLog"></div>
+              <div class="chatInputRow">
+                <input id="chatInput" class="chatInput" placeholder="Сообщение..." />
+                <button id="chatSend" class="miniBtn primary">↵</button>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <!-- SCREEN: MATCH 1x1 -->
-          <section class="screen" id="screen-match" aria-label="Игра 1 на 1">
-            <div class="paper paperMatch">
-              <div class="matchHead">
-                <div class="matchTitle">
-                  Бой 1x1: <span id="enemyNick">user2</span>
-                </div>
-                <div class="matchBtns">
-                  <button class="btnPaper" id="btnMatchChat">Чат</button>
-                  <button class="btnPaper primary" id="btnSurrender">Выйти</button>
-                </div>
+        <!-- SCREEN: DUEL -->
+        <section class="screen hidden" id="screen-duel" data-screen="duel">
+          <div class="paper">
+            <div class="duelHeader">
+              <div class="placeTitle" id="duelTitle">Дуэль 1×1</div>
+              <div class="duelControls">
+                <button class="miniBtn" id="btnDuelBack">← Назад</button>
               </div>
-
-              <div class="matchBoards">
-                <div class="miniBoardCard">
-                  <div class="miniTitle">Ты</div>
-                  <div class="miniBoard" id="p1Board"></div>
-                </div>
-                <div class="miniBoardCard">
-                  <div class="miniTitle">Противник</div>
-                  <div class="miniBoard" id="p2Board"></div>
-                </div>
-              </div>
-
-              <div class="matchHint" id="matchHint">
-                Это макет UI: можно тапать по клеткам противника, будут “промах/попадание” (визуально).
-              </div>
-
-              <aside class="chat matchChat" id="matchChat">
-                <div class="chatHead">
-                  <div>Чат боя</div>
-                  <button class="btnPaper small" id="btnMatchChatClose">✕</button>
-                </div>
-                <div class="chatMsgs" id="matchChatMsgs"></div>
-                <div class="chatInput">
-                  <input id="matchChatText" placeholder="Сообщение" />
-                  <button class="btnPaper small" id="matchChatSend">↵</button>
-                </div>
-              </aside>
             </div>
-          </section>
 
+            <div class="duelBody">
+              <div class="panel">
+                <div class="panelTitle">
+                  <div class="bigInk">Твоё поле</div>
+                  <div class="hint">твои корабли уже стоят</div>
+                </div>
+                <div class="boardWrap">
+                  <div id="duelMyBoard" class="board"></div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <div class="panelTitle">
+                  <div class="bigInk">Поле противника</div>
+                  <div class="hint">тапни клетку, чтобы “выстрелить”</div>
+                </div>
+                <div class="boardWrap">
+                  <div id="duelEnemyBoard" class="board"></div>
+                </div>
+
+                <div class="shotsInfo" id="shotsInfo">Ход: ты</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODALS: Settings/Share/Help -->
+        <div class="modal hidden" id="modal">
+          <div class="modalCard">
+            <div class="modalTop">
+              <div class="bigInk" id="modalTitle">Окно</div>
+              <button class="miniBtn" id="modalClose">✕</button>
+            </div>
+            <div class="modalBody" id="modalBody"></div>
+            <div class="modalBottom">
+              <button class="miniBtn primary" id="modalOk">Ок</button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  </main>
+
+      </div><!-- /stage -->
+    </main>
+  </div>
 
   <script src="game.js"></script>
 </body>
