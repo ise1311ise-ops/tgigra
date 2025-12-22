@@ -1,89 +1,57 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Темщик</title>
-
-  <!-- Telegram WebApp SDK -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Морской бой</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
-
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo">Т</div>
-      <div class="titles">
-        <div class="name">Темщик</div>
-        <div class="tagline">Двигайся. Делай шаги. Качай уровень.</div>
-      </div>
-    </div>
-
-    <div class="profile">
-      <div class="stat">
-        <div class="stat__label">LVL</div>
-        <div id="lvl" class="stat__value">1</div>
-      </div>
-      <div class="stat">
-        <div class="stat__label">XP</div>
-        <div id="xp" class="stat__value">0</div>
-      </div>
-    </div>
-  </header>
-
-  <main class="container">
-    <section class="card">
-      <h2>Темки (идеи)</h2>
-      <div class="row">
-        <input id="ideaInput" class="input" placeholder="Напр: Кофейня у метро / Мойка самообслуживания / Крипта-учёт" />
-        <button id="addIdeaBtn" class="btn">Добавить</button>
-      </div>
-      <ul id="ideas" class="list"></ul>
-    </section>
-
-    <section class="card">
-      <h2>Квесты (шаги)</h2>
-      <div class="hint">Выбирай реальные действия: созвон, расчёт, поиск локации, проверка трафика.</div>
-
-      <div class="row">
-        <input id="questInput" class="input" placeholder="Напр: Посчитать аренду и окупаемость (15 мин)" />
-        <button id="addQuestBtn" class="btn">Добавить</button>
+  <div class="app">
+    <header class="top">
+      <div>
+        <h1>⚓ Морской бой</h1>
+        <div class="sub">Ты vs ИИ • 10×10 • 10 кораблей</div>
       </div>
 
-      <ul id="quests" class="list"></ul>
-    </section>
+      <div class="controls">
+        <button id="btnNew" class="btn">Новая игра</button>
+        <button id="btnRandom" class="btn btnGhost">Переразместить</button>
+      </div>
+    </header>
 
-    <section class="card">
-      <h2>Мини-игра: “Тапай — качайся”</h2>
-      <div class="hint">Тапы дают мало XP. Основной XP — за квесты.</div>
+    <main class="main">
+      <section class="panel">
+        <h2>Твое поле</h2>
+        <div id="myGrid" class="grid" aria-label="Твое поле"></div>
+        <div class="hint">ИИ стреляет сюда</div>
+      </section>
 
-      <div class="game">
-        <button id="tapBtn" class="tap">
-          <div class="tap__title">ТАП!</div>
-          <div class="tap__sub">+1 XP</div>
-        </button>
+      <section class="panel">
+        <h2>Поле противника</h2>
+        <div id="enemyGrid" class="grid" aria-label="Поле противника"></div>
+        <div class="hint">Жми по клеткам, чтобы стрелять</div>
+      </section>
 
-        <div class="game__side">
-          <div class="meter">
-            <div class="meter__label">XP до следующего уровня</div>
-            <div class="meter__bar">
-              <div id="meterFill" class="meter__fill"></div>
-            </div>
-            <div id="meterText" class="meter__text">0 / 50</div>
+      <aside class="side">
+        <div class="status" id="status">
+          <div class="badge" id="turnBadge">Твой ход</div>
+          <div class="score">
+            <div><span id="myLeft">10</span> кораблей у тебя</div>
+            <div><span id="enemyLeft">10</span> кораблей у ИИ</div>
           </div>
-
-          <button id="shareBtn" class="btn btn--ghost">Отправить прогресс боту</button>
         </div>
-      </div>
-    </section>
-  </main>
 
-  <footer class="footer">
-    <span id="tgInfo">Telegram: —</span>
-  </footer>
+        <div class="log" id="log"></div>
 
-  <script src="game.js"></script>
+        <div class="footer">
+          <button id="btnClose" class="btn btnGhost">Закрыть</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="./game.js"></script>
 </body>
 </html>
