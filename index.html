@@ -2,332 +2,220 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Морской Бой — онлайн игра (UI)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Морской бой — онлайн игра</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="theme-paper">
-  <div id="app" class="app">
-    <!-- Верхняя панель (как в приложении) -->
-    <header class="topbar">
-      <button class="iconBtn" id="btnBack" aria-label="Назад">⌂</button>
-      <div class="topbarTitle" id="topTitle">Морской Бой — онлайн игра</div>
-      <div class="topbarRight">
-        <button class="iconBtn" id="btnChat" aria-label="Чат" title="Чат">💬</button>
-        <button class="iconBtn" id="btnMore" aria-label="Меню" title="Меню">⋯</button>
-      </div>
-    </header>
+<body>
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <button class="iconBtn" id="btnBack" aria-label="Назад">✕</button>
+    <div class="topTitle" id="topTitle">Морской Бой — онлайн игра</div>
+    <button class="iconBtn" id="btnMenu" aria-label="Меню">⋯</button>
+  </header>
 
-    <!-- Контейнер для авто-масштабирования (без прокрутки) -->
-    <main class="viewport">
-      <div class="stageWrap" id="stageWrap">
-        <div class="stage paper" id="stage">
-          <!-- ====== ЭКРАН 1: Главный ====== -->
-          <section class="screen isActive" data-screen="home">
-            <div class="homeLayout">
-              <div class="homeArt">
-                <!-- Простая “ручкой” иллюстрация (SVG), без PNG пока -->
-                <svg viewBox="0 0 520 420" class="inkArt" aria-hidden="true">
-                  <g fill="none" stroke="var(--ink)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
-                    <!-- корабль слева -->
-                    <path d="M70 270 C120 240, 190 230, 250 240 C280 245, 300 255, 330 260" />
-                    <path d="M75 270 C105 330, 190 350, 290 330 C325 323, 350 310, 370 290" />
-                    <path d="M140 245 L175 205 L250 205 L300 240" />
-                    <path d="M180 205 L180 170 L230 170 L250 205" />
-                    <path d="M100 300 C120 290, 140 290, 160 300" />
-                    <path d="M170 310 C200 300, 230 300, 260 312" />
-                    <!-- маяк справа -->
-                    <path d="M400 320 L455 320" />
-                    <path d="M430 320 L430 210" />
-                    <path d="M410 210 L450 210" />
-                    <path d="M418 210 L430 160 L442 210" />
-                    <path d="M420 160 L440 160" />
-                    <path d="M420 150 L440 150" />
-                    <path d="M420 140 L440 140" />
-                    <path d="M420 130 L440 130" />
-                    <path d="M415 120 L445 120" />
-                    <path d="M425 105 L435 105" />
-                    <!-- вода -->
-                    <path d="M60 350 C110 330, 170 330, 220 350" />
-                    <path d="M230 350 C280 330, 340 330, 390 350" />
-                    <path d="M120 370 C170 355, 210 355, 260 370" />
-                  </g>
-                </svg>
-              </div>
+  <!-- STAGE CENTER -->
+  <main class="app">
+    <div class="stageCenter">
+      <!-- ВАЖНО: stageWrap — реальный размер под масштаб (JS), stage — масштабируется transform -->
+      <div id="stageWrap" class="stageWrap">
+        <div id="stage" class="stage">
+
+          <!-- SCREEN: HOME -->
+          <section class="screen active" id="screen-home" aria-label="Главный экран">
+            <div class="paper paperHome">
+              <div class="homeArtLeft"></div>
+              <div class="homeArtRight"></div>
 
               <div class="homeMenu">
-                <div class="menuButtons">
-                  <button class="btnInk big" data-nav="placement">Онлайн игра</button>
-                  <button class="btnInk" data-nav="settings">Настройки</button>
-                  <button class="btnInk" data-nav="share">Поделиться</button>
-                  <button class="btnInk" data-nav="support">Поддержка</button>
-                </div>
+                <button class="btnPaper big" id="goOnline">Онлайн игра <span class="pill" id="onlinePill">119</span></button>
+                <button class="btnPaper big" id="goSettings">Настройки</button>
+                <button class="btnPaper big" id="goShare">Поделиться</button>
+                <button class="btnPaper big" id="goSupport">Поддержка</button>
+                <div class="ver">v0.2 • пока без реального онлайна (только макет UI)</div>
+              </div>
+            </div>
+          </section>
 
-                <div class="smallNote">
-                  v0.2 • пока без реального онлайна (только макет UI)
+          <!-- SCREEN: SETTINGS (placeholder) -->
+          <section class="screen" id="screen-settings" aria-label="Настройки">
+            <div class="paper paperModal">
+              <div class="modalHead">
+                <div class="modalTitle">Настройки</div>
+                <button class="btnPaper small" data-nav="back">Ок</button>
+              </div>
+              <div class="modalBody">
+                <div class="row">
+                  <div class="label">Звук</div>
+                  <div class="fakeToggle on"></div>
+                </div>
+                <div class="row">
+                  <div class="label">Подсказки</div>
+                  <div class="fakeToggle on"></div>
+                </div>
+                <div class="row">
+                  <div class="label">Тема</div>
+                  <div class="fakeSelect">Тетрадь</div>
+                </div>
+                <div class="hint">
+                  Это макет UI. Настройки пока не влияют на игру.
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ====== ЭКРАН 2: Расстановка ====== -->
-          <section class="screen" data-screen="placement">
-            <div class="screenHead">
-              <div class="screenHeadTitle">Морской Бой — расстановка</div>
-              <div class="screenHeadSub">Тапни корабль справа → тапни по клетке на поле, чтобы поставить</div>
-            </div>
-
-            <div class="placementGrid">
-              <!-- поле -->
-              <div class="panel inkPanel">
-                <div class="panelTitleRow">
-                  <div class="panelTitle">Твоё поле</div>
-                  <div class="hintMini">Режим: <b>Расстановка</b></div>
-                </div>
-
-                <div class="boardWrap">
-                  <div class="boardLabelsTop" id="labelsTop"></div>
-                  <div class="boardMid">
-                    <div class="boardLabelsLeft" id="labelsLeft"></div>
-                    <div class="board" id="myBoard" aria-label="Поле расстановки"></div>
-                  </div>
-                </div>
-
-                <div class="legendRow">
-                  <span class="dot ship"></span> корабль
-                  <span class="dot forbidden"></span> нельзя рядом (пока UI)
-                </div>
+          <!-- SCREEN: SHARE (placeholder) -->
+          <section class="screen" id="screen-share" aria-label="Поделиться">
+            <div class="paper paperModal">
+              <div class="modalHead">
+                <div class="modalTitle">Поделиться</div>
+                <button class="btnPaper small" data-nav="back">Ок</button>
               </div>
-
-              <!-- флот -->
-              <div class="panel inkPanel">
-                <div class="panelTitleRow">
-                  <div class="panelTitle">Флот</div>
-                  <div class="hintMini">Выбери корабль → поставь</div>
+              <div class="modalBody">
+                <div class="hint">Скопируй ссылку и отправь другу:</div>
+                <div class="copyBox">
+                  <input id="shareLink" readonly />
+                  <button class="btnPaper small" id="copyLink">Копировать</button>
                 </div>
+                <div class="hint tiny" id="copyStatus"></div>
+              </div>
+            </div>
+          </section>
 
-                <div class="fleet" id="fleet"></div>
-
-                <div class="rowButtons">
-                  <button class="btnInk" id="btnRotate">Повернуть: <span id="rotTxt">Гориз.</span></button>
-                  <button class="btnInk ghost" id="btnAuto" disabled title="Макет: позже">Авто</button>
-                  <button class="btnInk primary" id="btnStartLobby" disabled>Старт</button>
+          <!-- SCREEN: SUPPORT (placeholder) -->
+          <section class="screen" id="screen-support" aria-label="Поддержка">
+            <div class="paper paperModal">
+              <div class="modalHead">
+                <div class="modalTitle">Поддержка</div>
+                <button class="btnPaper small" data-nav="back">Ок</button>
+              </div>
+              <div class="modalBody">
+                <div class="hint">
+                  Расстановка: выбери корабль → тапни по клетке на поле. Кнопка «Повернуть» меняет ориентацию.
                 </div>
-
-                <div class="miniHelp">
-                  После расстановки нажми <b>Старт</b> → перейдёшь в общий зал.
+                <div class="hint">
+                  Онлайн: выбери игрока в зале — откроется экран боя 1х1 (макет).
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ====== ЭКРАН 3: Игровой зал (онлайн) ====== -->
-          <section class="screen" data-screen="lobby">
-            <div class="screenHead">
-              <div class="screenHeadTitle">Игровой зал</div>
-              <div class="screenHeadSub">Нажми на игрока, чтобы начать 1×1. Чат — кнопка 💬 сверху.</div>
-            </div>
+          <!-- SCREEN: SETUP -->
+          <section class="screen" id="screen-setup" aria-label="Расстановка">
+            <div class="paper paperSetup">
+              <div class="setupTop">
+                <div class="setupTitle">Расстановка</div>
 
-            <div class="lobbyLayout">
-              <div class="panel inkPanel">
-                <div class="panelTitleRow">
-                  <div class="panelTitle">Онлайн игроки</div>
-                  <div class="hintMini">общая комната</div>
+                <div class="setupBtns">
+                  <button class="btnPaper" id="btnRotate">Повернуть: <b id="rotLabel">Гориз.</b></button>
+                  <button class="btnPaper" id="btnAuto">Авто</button>
+                  <button class="btnPaper primary" id="btnSetupDone">Старт</button>
                 </div>
-                <div class="playersGrid" id="playersGrid"></div>
               </div>
 
-              <div class="panel inkPanel lobbyInfo">
-                <div class="panelTitleRow">
-                  <div class="panelTitle">Инфо</div>
-                  <div class="hintMini">UI макет</div>
-                </div>
-                <div class="infoText">
-                  • Игроки: <b>user1…user12</b><br/>
-                  • Выбор игрока → переход в игру 1×1<br/>
-                  • Чат открывается кнопкой <b>💬</b> вверху<br/>
-                  • Это пока визуальный макет, без серверов
-                </div>
-                <button class="btnInk" id="btnBackToPlacement">← Вернуться к расстановке</button>
-              </div>
-            </div>
-          </section>
-
-          <!-- ====== ЭКРАН 4: Игра 1×1 ====== -->
-          <section class="screen" data-screen="duel">
-            <div class="screenHead">
-              <div class="screenHeadTitle">Игра 1×1</div>
-              <div class="screenHeadSub">Соперник: <b id="enemyName">user?</b> • Чат — кнопка 💬 сверху</div>
-            </div>
-
-            <div class="duelLayout">
-              <div class="panel inkPanel">
-                <div class="panelTitleRow">
-                  <div class="panelTitle">Твоё поле</div>
-                  <div class="hintMini">свои корабли</div>
-                </div>
-                <div class="boardWrap compact">
-                  <div class="boardLabelsTop" id="labelsTop2"></div>
-                  <div class="boardMid">
-                    <div class="boardLabelsLeft" id="labelsLeft2"></div>
-                    <div class="board" id="duelMyBoard"></div>
+              <div class="setupGrid">
+                <div class="boardCard">
+                  <div class="cardHead">
+                    <div class="h1">Твоё поле</div>
+                    <div class="h2">Тапни корабль → тапни по клетке</div>
                   </div>
-                </div>
-              </div>
-
-              <div class="panel inkPanel">
-                <div class="panelTitleRow">
-                  <div class="panelTitle">Поле противника</div>
-                  <div class="hintMini">стреляй сюда</div>
-                </div>
-                <div class="boardWrap compact">
-                  <div class="boardLabelsTop" id="labelsTop3"></div>
-                  <div class="boardMid">
-                    <div class="boardLabelsLeft" id="labelsLeft3"></div>
-                    <div class="board" id="duelEnemyBoard"></div>
+                  <div class="boardWrap">
+                    <div class="axisTop" id="axisTop"></div>
+                    <div class="axisLeft" id="axisLeft"></div>
+                    <div class="board" id="myBoard" aria-label="Поле игрока"></div>
                   </div>
                 </div>
 
-                <div class="rowButtons">
-                  <button class="btnInk" id="btnLeaveDuel">← В зал</button>
-                  <button class="btnInk primary" id="btnMockShot">Сделать “выстрел” (UI)</button>
+                <div class="fleetCard">
+                  <div class="cardHead">
+                    <div class="h1">Флот</div>
+                    <div class="h2">Выбери корабль → поставь</div>
+                  </div>
+                  <div class="fleet" id="fleet"></div>
+                  <div class="legend">
+                    <span class="dot ship"></span> корабль
+                    <span class="dot bad"></span> нельзя рядом
+                  </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ====== Настройки ====== -->
-          <section class="screen" data-screen="settings">
-            <div class="screenHead">
-              <div class="screenHeadTitle">Настройки</div>
-              <div class="screenHeadSub">звук / подсказки / тема</div>
-            </div>
-
-            <div class="settingsLayout">
-              <div class="panel inkPanel">
-                <div class="settingRow">
-                  <div>
-                    <div class="settingName">Звук</div>
-                    <div class="settingDesc">в макете просто переключатель</div>
-                  </div>
-                  <label class="switch">
-                    <input type="checkbox" id="setSound" checked>
-                    <span class="slider"></span>
-                  </label>
-                </div>
-
-                <div class="settingRow">
-                  <div>
-                    <div class="settingName">Подсказки</div>
-                    <div class="settingDesc">показывать подсказки на экранах</div>
-                  </div>
-                  <label class="switch">
-                    <input type="checkbox" id="setHints" checked>
-                    <span class="slider"></span>
-                  </label>
-                </div>
-
-                <div class="settingRow">
-                  <div>
-                    <div class="settingName">Тема</div>
-                    <div class="settingDesc">бумага / тёмная</div>
-                  </div>
-                  <div class="seg">
-                    <button class="segBtn isOn" id="themePaper">Бумага</button>
-                    <button class="segBtn" id="themeDark">Тёмная</button>
-                  </div>
-                </div>
-
-                <div class="rowButtons">
-                  <button class="btnInk" data-nav="home">← На главный</button>
+          <!-- SCREEN: LOBBY -->
+          <section class="screen" id="screen-lobby" aria-label="Игровой зал">
+            <div class="paper paperLobby">
+              <div class="lobbyHead">
+                <div class="lobbyTitle">Игровой зал (<span id="onlineCount">12</span>)</div>
+                <div class="lobbyBtns">
+                  <button class="btnPaper" id="btnChat">Чат</button>
+                  <button class="btnPaper" id="btnHideChat" style="display:none;">Скрыть чат</button>
                 </div>
               </div>
 
-              <div class="panel inkPanel">
-                <div class="infoText">
-                  Масштаб под экран подбирается автоматически (без прокрутки).<br/><br/>
-                  Если что-то “не влезает” — это будет фикситься стилями, но сейчас макет уже делает автоподгон.
-                </div>
+              <div class="lobbyBody">
+                <div class="players" id="players"></div>
+
+                <aside class="chat" id="chat" aria-label="Чат">
+                  <div class="chatHead">
+                    <div>Чат</div>
+                    <button class="btnPaper small" id="btnChatClose">✕</button>
+                  </div>
+                  <div class="chatMsgs" id="chatMsgs"></div>
+                  <div class="chatInput">
+                    <input id="chatText" placeholder="Сообщение" />
+                    <button class="btnPaper small" id="chatSend">↵</button>
+                  </div>
+                </aside>
               </div>
             </div>
           </section>
 
-          <!-- ====== Поделиться ====== -->
-          <section class="screen" data-screen="share">
-            <div class="screenHead">
-              <div class="screenHeadTitle">Поделиться</div>
-              <div class="screenHeadSub">скопировать ссылку на игру</div>
-            </div>
-
-            <div class="shareLayout">
-              <div class="panel inkPanel">
-                <div class="infoText">
-                  Ссылка на твою страницу:
+          <!-- SCREEN: MATCH 1x1 -->
+          <section class="screen" id="screen-match" aria-label="Игра 1 на 1">
+            <div class="paper paperMatch">
+              <div class="matchHead">
+                <div class="matchTitle">
+                  Бой 1x1: <span id="enemyNick">user2</span>
                 </div>
-                <div class="shareBox">
-                  <input id="shareLink" class="shareInput" readonly />
-                  <button class="btnInk primary" id="btnCopy">Копировать</button>
-                </div>
-                <div class="miniHelp" id="copyStatus"> </div>
-
-                <div class="rowButtons">
-                  <button class="btnInk" data-nav="home">← На главный</button>
+                <div class="matchBtns">
+                  <button class="btnPaper" id="btnMatchChat">Чат</button>
+                  <button class="btnPaper primary" id="btnSurrender">Выйти</button>
                 </div>
               </div>
-            </div>
-          </section>
 
-          <!-- ====== Поддержка ====== -->
-          <section class="screen" data-screen="support">
-            <div class="screenHead">
-              <div class="screenHeadTitle">Поддержка</div>
-              <div class="screenHeadSub">как играть / помощь</div>
-            </div>
-
-            <div class="supportLayout">
-              <div class="panel inkPanel">
-                <div class="infoText">
-                  <b>Как играть (макет):</b><br/><br/>
-                  1) Нажми <b>Онлайн игра</b> → откроется <b>Расстановка</b><br/>
-                  2) Выбери корабль → тапни по клетке (поставится)<br/>
-                  3) Когда всё поставишь — нажми <b>Старт</b><br/>
-                  4) В <b>Игровом зале</b> нажми на игрока <b>userX</b> → откроется <b>1×1</b><br/>
-                  5) Чат открывается кнопкой <b>💬</b> сверху (в зале и в 1×1)<br/><br/>
-                  Если хочешь — дальше сделаем PNG-стиль “как на скрине” и настоящие спрайты кораблей.
+              <div class="matchBoards">
+                <div class="miniBoardCard">
+                  <div class="miniTitle">Ты</div>
+                  <div class="miniBoard" id="p1Board"></div>
                 </div>
-
-                <div class="rowButtons">
-                  <button class="btnInk" data-nav="home">← На главный</button>
+                <div class="miniBoardCard">
+                  <div class="miniTitle">Противник</div>
+                  <div class="miniBoard" id="p2Board"></div>
                 </div>
               </div>
+
+              <div class="matchHint" id="matchHint">
+                Это макет UI: можно тапать по клеткам противника, будут “промах/попадание” (визуально).
+              </div>
+
+              <aside class="chat matchChat" id="matchChat">
+                <div class="chatHead">
+                  <div>Чат боя</div>
+                  <button class="btnPaper small" id="btnMatchChatClose">✕</button>
+                </div>
+                <div class="chatMsgs" id="matchChatMsgs"></div>
+                <div class="chatInput">
+                  <input id="matchChatText" placeholder="Сообщение" />
+                  <button class="btnPaper small" id="matchChatSend">↵</button>
+                </div>
+              </aside>
             </div>
           </section>
-
-          <!-- ====== Оверлей-чат (открывается кнопкой сверху) ====== -->
-          <aside class="chatOverlay" id="chatOverlay" aria-hidden="true">
-            <div class="chatCard inkPanel">
-              <div class="chatTop">
-                <div class="chatTitle">Чат</div>
-                <button class="iconBtn" id="btnChatClose" aria-label="Закрыть чат">✕</button>
-              </div>
-
-              <div class="chatBody" id="chatBody">
-                <div class="msg"><b>user3:</b> всем привет 👋</div>
-                <div class="msg"><b>user7:</b> кто играет 1×1?</div>
-                <div class="msg"><b>user1:</b> я готов</div>
-              </div>
-
-              <div class="chatBottom">
-                <input class="chatInput" id="chatInput" placeholder="Сообщение…" />
-                <button class="btnInk primary" id="btnSend">Отпр.</button>
-              </div>
-            </div>
-          </aside>
 
         </div>
       </div>
-    </main>
-  </div>
+    </div>
+  </main>
 
   <script src="game.js"></script>
 </body>
