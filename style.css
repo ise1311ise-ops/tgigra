@@ -27,15 +27,17 @@ body{
     radial-gradient(1200px 700px at 30% 10%, rgba(70,100,255,.22), transparent 60%),
     radial-gradient(900px 600px at 70% 80%, rgba(255,255,255,.10), transparent 65%),
     #030615;
-  overflow:hidden; /* без прокрутки */
+  overflow:hidden;
 }
 
 .topbar{
   height:72px;
+  padding-top: env(safe-area-inset-top, 0px);
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding: 0 14px;
+  padding-left: 14px;
+  padding-right: 14px;
   background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.10));
   border-bottom: 1px solid rgba(255,255,255,.06);
   position: relative;
@@ -67,7 +69,7 @@ body{
 }
 
 .app{
-  height: calc(100% - 72px);
+  height: calc(100% - 72px - env(safe-area-inset-top, 0px));
   display:flex;
 }
 
@@ -79,12 +81,7 @@ body{
   padding: 16px;
 }
 
-/* stageWrap — РЕАЛЬНЫЕ размеры выставляет JS (важно для центрирования!) */
-.stageWrap{
-  display:block;
-}
-
-/* stage — фиксированный макет, но масштабируется transform */
+.stageWrap{ display:block; }
 .stage{
   width: calc(var(--stageW) * 1px);
   height: calc(var(--stageH) * 1px);
@@ -134,7 +131,6 @@ body{
   left:-90px; top:120px;
   width: 360px; height: 360px;
   opacity:.25;
-  filter: blur(.1px);
   background:
     radial-gradient(circle at 30% 30%, rgba(20,40,120,.25), transparent 55%),
     radial-gradient(circle at 50% 70%, rgba(20,40,120,.18), transparent 60%);
@@ -191,7 +187,6 @@ body{
   font-weight: 800;
   cursor:pointer;
   box-shadow: 0 10px 22px rgba(0,0,0,.18);
-  position: relative;
 }
 .btnPaper:hover{ filter: brightness(1.02); }
 .btnPaper:active{ transform: translateY(1px); }
@@ -202,88 +197,8 @@ body{
   border-color: rgba(55,85,210,.85);
 }
 
-/* -------- MODAL -------- */
-.paperModal{
-  width: 720px;
-  height: 420px;
-  margin: auto;
-  position:absolute;
-  inset:0;
-}
-.modalHead{
-  padding: 18px 18px 8px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-}
-.modalTitle{
-  font-size: 22px;
-  font-weight: 900;
-  color: rgba(10,20,60,.85);
-}
-.modalBody{ padding: 6px 18px 18px; }
-.row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding: 12px 0;
-  border-bottom: 1px dashed rgba(55,85,210,.25);
-}
-.label{
-  color: rgba(10,20,60,.85);
-  font-weight:800;
-}
-.fakeToggle{
-  width: 56px; height: 30px;
-  border-radius: 999px;
-  background: rgba(10,20,60,.10);
-  border: 2px solid rgba(55,85,210,.35);
-  position: relative;
-}
-.fakeToggle::after{
-  content:"";
-  width: 22px; height: 22px;
-  position:absolute; top:2px; left:2px;
-  border-radius: 999px;
-  background: rgba(55,85,210,.55);
-  transition:.2s;
-}
-.fakeToggle.on::after{ left: 30px; }
-.fakeSelect{
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 2px solid rgba(55,85,210,.35);
-  background: rgba(255,255,255,.65);
-  color: rgba(10,20,60,.85);
-  font-weight:800;
-}
-.hint{
-  margin-top: 12px;
-  color: rgba(10,20,60,.75);
-  font-weight:700;
-  line-height: 1.35;
-}
-.hint.tiny{ font-size: 12px; }
-
-.copyBox{
-  display:flex;
-  gap: 10px;
-  margin-top: 12px;
-}
-.copyBox input{
-  flex:1;
-  padding: 12px 12px;
-  border-radius: 14px;
-  border: 2px solid rgba(55,85,210,.35);
-  background: rgba(255,255,255,.65);
-  font-weight:800;
-  color: rgba(10,20,60,.85);
-}
-
 /* -------- SETUP -------- */
-.paperSetup{
-  padding: 16px 18px 18px;
-}
+.paperSetup{ padding: 16px 18px 18px; }
 .setupTop{
   display:flex;
   align-items:center;
@@ -295,10 +210,8 @@ body{
   font-weight: 1000;
   color: rgba(10,20,60,.88);
 }
-.setupBtns{
-  display:flex;
-  gap: 10px;
-}
+.setupBtns{ display:flex; gap: 10px; }
+
 .setupGrid{
   margin-top: 12px;
   display:grid;
@@ -315,6 +228,7 @@ body{
   padding: 12px;
   overflow:hidden;
 }
+
 .cardHead{
   display:flex;
   align-items:flex-end;
@@ -393,7 +307,6 @@ body{
   cursor:pointer;
   position:relative;
 }
-.cell:hover{ filter: brightness(1.01); }
 .cell.ship::after{
   content:"";
   position:absolute;
@@ -417,6 +330,7 @@ body{
   gap: 10px;
   margin-top: 6px;
 }
+
 .shipCard{
   border-radius: 18px;
   border: 2px solid rgba(55,85,210,.30);
@@ -427,15 +341,19 @@ body{
   justify-content:space-between;
   gap: 10px;
   cursor:pointer;
+  user-select:none;
 }
-.shipCard.active{
-  outline: 3px solid rgba(55,85,210,.55);
+
+.shipCard.active{ outline: 3px solid rgba(55,85,210,.55); }
+
+.shipCard.disabled{
+  opacity: .45;
+  filter: grayscale(.2);
+  cursor: not-allowed;
 }
-.shipDots{
-  display:flex;
-  gap: 6px;
-  opacity:.85;
-}
+.shipCard.disabled .shipName{ text-decoration: line-through; }
+
+.shipDots{ display:flex; gap: 6px; opacity:.85; }
 .shipDots span{
   width: 18px;
   height: 18px;
@@ -457,19 +375,12 @@ body{
   gap: 16px;
   align-items:center;
 }
-.dot{
-  width: 14px; height:14px;
-  border-radius:999px;
-  display:inline-block;
-  margin-right: 6px;
-}
+.dot{ width: 14px; height:14px; border-radius:999px; display:inline-block; margin-right: 6px; }
 .dot.ship{ background: rgba(55,85,210,.45); border:2px solid rgba(55,85,210,.50); }
 .dot.bad{ background: rgba(240,80,90,.28); border:2px solid rgba(240,80,90,.45); }
 
 /* -------- LOBBY -------- */
-.paperLobby{
-  padding: 16px 18px 18px;
-}
+.paperLobby{ padding: 16px 18px 18px; }
 .lobbyHead{
   display:flex;
   align-items:center;
@@ -481,10 +392,8 @@ body{
   font-weight: 1000;
   color: rgba(10,20,60,.88);
 }
-.lobbyBtns{
-  display:flex;
-  gap: 10px;
-}
+.lobbyBtns{ display:flex; gap: 10px; }
+
 .lobbyBody{
   margin-top: 12px;
   height: calc(100% - 64px);
@@ -522,7 +431,6 @@ body{
   font-size: 14px;
 }
 
-/* Chat panel overlay (hidden by default) */
 .chat{
   position:absolute;
   right: 0;
@@ -583,9 +491,7 @@ body{
 }
 
 /* -------- MATCH -------- */
-.paperMatch{
-  padding: 16px 18px 18px;
-}
+.paperMatch{ padding: 16px 18px 18px; }
 .matchHead{
   display:flex;
   align-items:center;
@@ -651,14 +557,12 @@ body{
   border: 3px solid rgba(240,80,90,.55);
   background: rgba(240,80,90,.20);
 }
-
 .matchHint{
   margin-top: 10px;
   color: rgba(10,20,60,.78);
   font-weight: 800;
 }
 
-/* match chat overlay */
 .matchChat{
   width: 380px;
   right: 0;
