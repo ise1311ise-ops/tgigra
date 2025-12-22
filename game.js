@@ -25,7 +25,6 @@ function showScreen(route, push=true){
   $$(".screen").forEach(s => s.classList.remove("active"));
   $("#"+id).classList.add("active");
 
-  // top title per route
   if(route === "home") setTopTitle("Морской Бой — онлайн игра");
   if(route === "setup") setTopTitle("Расстановка");
   if(route === "lobby") setTopTitle("Игровой зал");
@@ -39,11 +38,9 @@ function showScreen(route, push=true){
     if(last !== route) historyStack.push(route);
   }
 
-  // close chats when switching
   closeLobbyChat();
   closeMatchChat();
 
-  // refit after layout changes
   requestAnimationFrame(fitStage);
 }
 
@@ -53,21 +50,27 @@ function navBack(){
   showScreen(route, false);
 }
 
+/* ========= FIX: stage fit under topbar (no overlap) ========= */
 function fitStage(){
   const stage = document.getElementById("stage");
   const stageWrap = document.getElementById("stageWrap");
 
-  const topbarH = document.querySelector(".topbar").getBoundingClientRect().height;
+  const topbar = document.querySelector(".topbar");
+  const topbarRect = topbar.getBoundingClientRect();
+  const topbarH = topbarRect.height;
 
   const vw = window.innerWidth;
-  const vh = window.innerHeight - topbarH;
+  const vh = window.innerHeight;
+
+  // safe area (iOS etc)
+  const safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("env(safe-area-inset-top)") || "0") || 0;
+
+  const availW = Math.max(200, vw - 32);
+  // IMPORTANT: remove topbar height + small margin so nothing gets covered
+  const availH = Math.max(200, (vh - topbarH) - 28);
 
   const stageW = 980;
   const stageH = 620;
-
-  const padding = 16;
-  const availW = Math.max(200, vw - padding*2);
-  const availH = Math.max(200, vh - padding*2);
 
   let s = Math.min(availW / stageW, availH / stageH);
   s = Math.max(0.45, Math.min(1.0, s));
@@ -83,24 +86,30 @@ function fitStage(){
 const letters = ["А","Б","В","Г","Д","Е","Ж","З","И","К"];
 
 let rotateHorizontal = true;
-let selectedShipLen = 4;
+
+// ВАЖНО: теперь выбран не “длина”, а конкретный корабль из списка (уникальный)
+let selectedShipId = null;
 
 const fleetList = [
-  {len:4, name:"4-палубный"},
-  {len:3, name:"3-палубный"},
-  {len:3, name:"3-палубный"},
-  {len:2, name:"2-палубный"},
-  {len:2, name:"2-палубный"},
-  {len:2, name:"2-палубный"},
-  {len:1, name:"1-палубный"},
-  {len:1, name:"1-палубный"},
-  {len:1, name:"1-палубный"},
-  {len:1, name:"1-палубный"},
+  {id:"s4",  len:4, name:"4-палубный"},
+  {id:"s3a", len:3, name:"3-палубный"},
+  {id:"s3b", len:3, name:"3-палубный"},
+  {id:"s2a", len:2, name:"2-палубный"},
+  {id:"s2b", len:2, name:"2-палубный"},
+  {id:"s2c", len:2, name:"2-палубный"},
+  {id:"s1a", len:1, name:"1-палубный"},
+  {id:"s1b", len:1, name:"1-палубный"},
+  {id:"s1c", len:1, name:"1-палубный"},
+  {id:"s1d", len:1, name:"1-палубный"},
 ];
 
-let myShips = []; // placed ships [{cells:[idx...], len}]
-let occupied = new Set(); // idx
-let blocked = new Set();  // idx (neighbors)
+// placedShips: shipId -> {cells, len}
+let placedShips = new Map();
+
+// occupied cell set
+let occupied = new Set();
+// blocked (neighbors)
+let blocked = new Set();
 
 function buildAxes(){
   const top = $("#axisTop");
@@ -126,7 +135,7 @@ function buildBoard(){
     const c = document.createElement("div");
     c.className = "cell";
     c.dataset.idx = String(i);
-    c.addEventListener("click", () => tryPlaceShip(i));
+    c.addEventListener("click", () => tryPlaceSelected(i));
     b.appendChild(c);
   }
 }
@@ -167,22 +176,20 @@ function canPlace(cells){
   return true;
 }
 
-function place(cells, len){
-  cells.forEach(i=>occupied.add(i));
-  // block neighbors
-  cells.forEach(i=>neighborsOf(i).forEach(n=>blocked.add(n)));
-
-  myShips.push({cells, len});
-  renderBoard();
+function recomputeBlocked(){
+  blocked = new Set();
+  // block neighbors around ALL occupied
+  occupied.forEach(i=>{
+    neighborsOf(i).forEach(n=>blocked.add(n));
+  });
 }
 
 function renderBoard(){
-  // clear
   $$("#myBoard .cell").forEach(el=>{
     el.classList.remove("ship","bad");
   });
 
-  // paint blocked (red dots style)
+  // paint blocked
   blocked.forEach(idx=>{
     const el = $(`#myBoard .cell[data-idx="${idx}"]`);
     if(el && !occupied.has(idx)) el.classList.add("bad");
@@ -198,11 +205,11 @@ function renderBoard(){
 function buildFleet(){
   const wrap = $("#fleet");
   wrap.innerHTML = "";
+
   fleetList.forEach((s, i)=>{
     const card = document.createElement("div");
-    card.className = "shipCard" + (i===0 ? " active" : "");
-    card.dataset.len = String(s.len);
-    card.dataset.i = String(i);
+    card.className = "shipCard";
+    card.dataset.id = s.id;
 
     const dots = document.createElement("div");
     dots.className = "shipDots";
@@ -219,33 +226,109 @@ function buildFleet(){
     card.appendChild(name);
 
     card.addEventListener("click", ()=>{
-      $$("#fleet .shipCard").forEach(x=>x.classList.remove("active"));
-      card.classList.add("active");
-      selectedShipLen = s.len;
+      if(card.classList.contains("disabled")) return;
+      selectShipCard(s.id);
     });
 
     wrap.appendChild(card);
   });
+
+  // default select first available
+  selectFirstAvailableShip();
+  updateFleetDisabled();
 }
 
-function tryPlaceShip(startIdx){
-  // limit: allow placing up to fleet composition (simple, UI макет)
-  // if want strict counts: we can decrement by len from fleetList
-  const cells = computeShipCells(startIdx, selectedShipLen, rotateHorizontal);
+function selectShipCard(id){
+  selectedShipId = id;
+  $$("#fleet .shipCard").forEach(x=>x.classList.remove("active"));
+  const el = $(`#fleet .shipCard[data-id="${id}"]`);
+  if(el) el.classList.add("active");
+}
+
+function selectFirstAvailableShip(){
+  const next = fleetList.find(s => !placedShips.has(s.id));
+  if(next) selectShipCard(next.id);
+  else selectedShipId = null;
+}
+
+function updateFleetDisabled(){
+  $$("#fleet .shipCard").forEach(el=>{
+    const id = el.dataset.id;
+    if(placedShips.has(id)) el.classList.add("disabled");
+    else el.classList.remove("disabled");
+  });
+
+  // if selected is now placed, move selection
+  if(selectedShipId && placedShips.has(selectedShipId)){
+    selectFirstAvailableShip();
+  }
+}
+
+function tryPlaceSelected(startIdx){
+  if(!selectedShipId) return;
+
+  // if already placed, ignore
+  if(placedShips.has(selectedShipId)) {
+    selectFirstAvailableShip();
+    return;
+  }
+
+  const ship = fleetList.find(s=>s.id===selectedShipId);
+  if(!ship) return;
+
+  const cells = computeShipCells(startIdx, ship.len, rotateHorizontal);
   if(!cells) return;
   if(!canPlace(cells)) return;
 
-  place(cells, selectedShipLen);
+  // place: mark occupied
+  cells.forEach(i=>occupied.add(i));
+  placedShips.set(selectedShipId, {cells, len: ship.len});
 
-  // auto move selection to next available in list (UI)
-  const next = fleetList.find(f=> f.len===selectedShipLen && false);
+  recomputeBlocked();
+  renderBoard();
+
+  // disable used ship + auto select next
+  updateFleetDisabled();
+  selectFirstAvailableShip();
 }
 
 function resetSetup(){
-  myShips = [];
+  placedShips = new Map();
   occupied = new Set();
   blocked = new Set();
   renderBoard();
+  updateFleetDisabled();
+  selectFirstAvailableShip();
+}
+
+// simple “auto” (respect rules & counts)
+function autoSetup(){
+  resetSetup();
+
+  // random placement attempts
+  const allIds = fleetList.map(s=>s.id);
+
+  for(const id of allIds){
+    const ship = fleetList.find(s=>s.id===id);
+    let placed = false;
+
+    for(let tries=0; tries<400 && !placed; tries++){
+      const horiz = Math.random() < 0.5;
+      const idx = Math.floor(Math.random()*100);
+      const cells = computeShipCells(idx, ship.len, horiz);
+      if(!cells) continue;
+      if(!canPlace(cells)) continue;
+
+      cells.forEach(i=>occupied.add(i));
+      placedShips.set(id, {cells, len: ship.len});
+      recomputeBlocked();
+      placed = true;
+    }
+  }
+
+  renderBoard();
+  updateFleetDisabled();
+  selectFirstAvailableShip();
 }
 
 /* ========= Lobby / chat ========= */
@@ -262,7 +345,6 @@ function buildPlayers(){
       <div class="playerPing">${92 + (i%7)}%</div>
     `;
     card.addEventListener("click", ()=>{
-      // clicking yourself? still ok in mock
       startMatch(nick);
     });
     p.appendChild(card);
@@ -310,7 +392,6 @@ function buildMiniBoards(){
     c2.className="mcell";
     c2.addEventListener("click", ()=>{
       if(c2.classList.contains("hit") || c2.classList.contains("miss")) return;
-      // random visual result
       Math.random() < 0.25 ? c2.classList.add("hit") : c2.classList.add("miss");
     });
     b2.appendChild(c2);
@@ -332,29 +413,24 @@ function closeMatchChat(){
 
 /* ========= wiring ========= */
 function init(){
-  // nav buttons
   $("#btnBack").addEventListener("click", ()=>{
-    // home: close app style (stay home)
     const cur = historyStack[historyStack.length-1];
-    if(cur==="home") return; // nothing
+    if(cur==="home") return;
     navBack();
   });
 
   $("#btnMenu").addEventListener("click", ()=>{
-    // simple: go home
     showScreen("home");
     historyStack = ["home"];
   });
 
   $$("[data-nav='back']").forEach(b=>b.addEventListener("click", navBack));
 
-  // home buttons
   $("#goOnline").addEventListener("click", ()=> showScreen("setup"));
   $("#goSettings").addEventListener("click", ()=> showScreen("settings"));
   $("#goShare").addEventListener("click", ()=> showScreen("share"));
   $("#goSupport").addEventListener("click", ()=> showScreen("support"));
 
-  // share
   $("#shareLink").value = location.href;
   $("#copyLink").addEventListener("click", async ()=>{
     $("#copyStatus").textContent = "";
@@ -366,37 +442,22 @@ function init(){
     }
   });
 
-  // setup controls
   $("#btnRotate").addEventListener("click", ()=>{
     rotateHorizontal = !rotateHorizontal;
     $("#rotLabel").textContent = rotateHorizontal ? "Гориз." : "Вертик.";
   });
-  $("#btnAuto").addEventListener("click", ()=>{
-    // макет: просто reset + небольшая "авто-раскладка" для вида
-    resetSetup();
-    // very simple preset for visuals
-    const presets = [
-      {idx: 0, len:4, h:true},
-      {idx: 20, len:3, h:false},
-      {idx: 44, len:3, h:true},
-      {idx: 77, len:2, h:true},
-      {idx: 61, len:2, h:false},
-      {idx: 13, len:2, h:true},
-      {idx: 96, len:1, h:true},
-      {idx: 58, len:1, h:true},
-      {idx: 89, len:1, h:true},
-      {idx: 35, len:1, h:true},
-    ];
-    presets.forEach(p=>{
-      const cells = computeShipCells(p.idx,p.len,p.h);
-      if(cells && canPlace(cells)) place(cells,p.len);
-    });
-  });
+
+  $("#btnAuto").addEventListener("click", autoSetup);
 
   $("#btnSetupDone").addEventListener("click", ()=>{
-    // переход в зал
+    // можно запретить переход, пока не все корабли стоят
+    if(placedShips.size !== fleetList.length){
+      // мягко: просто не пускаем
+      alert("Поставь все корабли, чтобы начать.");
+      return;
+    }
+
     buildPlayers();
-    // seed chat
     const msgs = $("#chatMsgs");
     msgs.innerHTML="";
     pushChatMsg(msgs,"user3","привет всем 👋");
@@ -405,7 +466,6 @@ function init(){
     showScreen("lobby");
   });
 
-  // lobby chat
   $("#btnChat").addEventListener("click", openLobbyChat);
   $("#btnHideChat").addEventListener("click", closeLobbyChat);
   $("#btnChatClose").addEventListener("click", closeLobbyChat);
@@ -420,7 +480,6 @@ function init(){
     if(e.key==="Enter") $("#chatSend").click();
   });
 
-  // match controls
   $("#btnSurrender").addEventListener("click", ()=> showScreen("lobby"));
   $("#btnMatchChat").addEventListener("click", openMatchChat);
   $("#btnMatchChatClose").addEventListener("click", closeMatchChat);
@@ -435,15 +494,12 @@ function init(){
     if(e.key==="Enter") $("#matchChatSend").click();
   });
 
-  // setup init
   buildAxes();
   buildBoard();
   buildFleet();
 
-  // default screen
   showScreen("home", false);
 
-  // scaling
   fitStage();
   window.addEventListener("resize", fitStage);
 }
