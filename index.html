@@ -3,34 +3,182 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Bricks vs Balls</title>
-
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <title>Город Микро-Бизнеса</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
-  <div class="topbar">
-    <div class="title">BRICKS vs BALLS</div>
-    <div class="stats">
-      <span id="ballsCount">x1</span>
-      <span id="round">Round 1</span>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">🏙️</div>
+      <div class="brandText">
+        <div class="title">Город Микро-Бизнеса</div>
+        <div class="subtitle" id="tgStatus">Web</div>
+      </div>
     </div>
-  </div>
 
-  <canvas id="game"></canvas>
+    <div class="topStats">
+      <div class="chip">
+        <div class="chipLabel">Баланс</div>
+        <div class="chipValue" id="money">0</div>
+      </div>
+      <div class="chip">
+        <div class="chipLabel">Пассивка/с</div>
+        <div class="chipValue" id="pps">0</div>
+      </div>
+    </div>
+  </header>
 
-  <div class="hint" id="hint">Проведи и отпусти, чтобы выстрелить</div>
-  <div class="debug" id="debug">debug...</div>
+  <main class="layout">
+    <!-- LEFT: Tap / Actions -->
+    <section class="card tapCard">
+      <div class="cardHeader">
+        <h2>Выручка</h2>
+        <div class="small" id="seasonLine">Сезон: 1 • День: 1</div>
+      </div>
 
-  <script>
-    // Telegram WebApp init (не мешает и в браузере)
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-    }
-  </script>
+      <div class="tapArea">
+        <button id="tapBtn" class="tapBtn">
+          <span class="tapEmoji">💰</span>
+          <span class="tapText">Тапай, чтобы обслужить клиентов</span>
+        </button>
+
+        <div class="meterWrap">
+          <div class="meterRow">
+            <div class="meterLabel">Энергия</div>
+            <div class="meterValue"><span id="energy">0</span>/<span id="energyMax">0</span></div>
+          </div>
+          <div class="meterBar">
+            <div class="meterFill" id="energyFill" style="width:0%"></div>
+          </div>
+          <div class="small" id="energyHint">Восстановление: +1 каждые 6 сек</div>
+        </div>
+
+        <div class="actions">
+          <button class="btn" id="collectBtn">Собрать пассивку</button>
+          <button class="btn ghost" id="boostBtn">Буст x2 (30 сек)</button>
+        </div>
+
+        <div class="notice" id="notice"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="daily">
+        <div class="dailyHeader">
+          <h3>Ежедневки</h3>
+          <div class="small" id="streakLine">Стрик: 0</div>
+        </div>
+        <div class="dailyList" id="dailyList"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Businesses -->
+    <section class="card shopCard">
+      <div class="cardHeader">
+        <h2>Бизнесы</h2>
+        <div class="filters">
+          <button class="pill active" data-filter="all">Все</button>
+          <button class="pill" data-filter="common">Обычные</button>
+          <button class="pill" data-filter="rare">Редкие</button>
+          <button class="pill" data-filter="legendary">Легендарные</button>
+        </div>
+      </div>
+
+      <div class="businessGrid" id="businessGrid"></div>
+    </section>
+
+    <!-- Bottom bar -->
+    <nav class="bottombar">
+      <button class="navBtn active" data-tab="home">🏠 Главная</button>
+      <button class="navBtn" data-tab="stats">📊 Статистика</button>
+      <button class="navBtn" data-tab="settings">⚙️ Настройки</button>
+    </nav>
+
+    <!-- Modal -->
+    <div class="modalBackdrop hidden" id="modalBackdrop">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modalHeader">
+          <div class="modalTitle" id="modalTitle">Заголовок</div>
+          <button class="iconBtn" id="modalClose">✕</button>
+        </div>
+        <div class="modalBody" id="modalBody"></div>
+        <div class="modalFooter" id="modalFooter"></div>
+      </div>
+    </div>
+
+    <!-- Tab panels -->
+    <section class="panel hidden" id="panel-stats">
+      <div class="panelCard">
+        <h2>Статистика</h2>
+        <div class="statGrid">
+          <div class="statBox">
+            <div class="statLabel">Всего тапов</div>
+            <div class="statValue" id="statTaps">0</div>
+          </div>
+          <div class="statBox">
+            <div class="statLabel">Заработано всего</div>
+            <div class="statValue" id="statEarned">0</div>
+          </div>
+          <div class="statBox">
+            <div class="statLabel">Бизнесов открыто</div>
+            <div class="statValue" id="statOwned">0</div>
+          </div>
+          <div class="statBox">
+            <div class="statLabel">Текущий район</div>
+            <div class="statValue" id="statDistrict">1</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <h3>Районы (мета-прогресс)</h3>
+        <div class="districtRow">
+          <div class="districtInfo">
+            <div class="districtTitle" id="districtTitle">Район 1</div>
+            <div class="small" id="districtHint">Открой 3 бизнеса, чтобы перейти дальше.</div>
+          </div>
+          <button class="btn" id="districtBtn">Проверить прогресс</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="panel-settings">
+      <div class="panelCard">
+        <h2>Настройки</h2>
+
+        <div class="settingRow">
+          <div>
+            <div class="settingTitle">Экспорт сохранения</div>
+            <div class="small">Скопируй JSON, чтобы перенести на другое устройство.</div>
+          </div>
+          <button class="btn ghost" id="exportBtn">Экспорт</button>
+        </div>
+
+        <div class="settingRow">
+          <div>
+            <div class="settingTitle">Импорт сохранения</div>
+            <div class="small">Вставь JSON (перезапишет текущий прогресс).</div>
+          </div>
+          <button class="btn ghost" id="importBtn">Импорт</button>
+        </div>
+
+        <div class="settingRow danger">
+          <div>
+            <div class="settingTitle">Сброс прогресса</div>
+            <div class="small">Удалит локальное сохранение.</div>
+          </div>
+          <button class="btn danger" id="resetBtn">Сброс</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="small muted">
+          Подсказка: если запускаешь как Telegram Mini App — укажи URL GitHub Pages в настройках бота (Web App).
+        </div>
+      </div>
+    </section>
+
+  </main>
 
   <script src="game.js"></script>
 </body>
