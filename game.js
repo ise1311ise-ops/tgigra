@@ -7,9 +7,8 @@
   const hint = document.getElementById("hint");
   const debugEl = document.getElementById("debug");
 
-  // --- Debug / error overlay ---
   function setDebug(text) {
-    debugEl.textContent = text;
+    if (debugEl) debugEl.textContent = text;
   }
 
   window.addEventListener("error", (e) => {
@@ -20,17 +19,14 @@
     setDebug("PROMISE ERROR:\n" + (e.reason?.message || String(e.reason)));
   });
 
-  // Убираем скролл/зум
   document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
   document.body.style.overflow = "hidden";
 
-  // --- Resize canvas по РЕАЛЬНОМУ размеру элемента (важно!) ---
+  // --- Resize canvas to real size ---
   let W = 0, H = 0, dpr = 1;
 
   function resizeCanvasToDisplaySize() {
     dpr = Math.max(1, window.devicePixelRatio || 1);
-
-    // берём реальные CSS размеры canvas
     const rect = canvas.getBoundingClientRect();
     const cssW = Math.max(1, Math.floor(rect.width));
     const cssH = Math.max(1, Math.floor(rect.height));
@@ -43,20 +39,14 @@
       canvas.height = needH;
     }
 
-    // логические размеры в CSS пикселях
     W = cssW;
     H = cssH;
-
-    // рисуем в CSS координатах
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  // иногда Telegram сначала даёт 0 размеров — делаем несколько попыток
   function ensureSized(tries = 0) {
     resizeCanvasToDisplaySize();
-    if ((W < 10 || H < 10) && tries < 10) {
-      requestAnimationFrame(() => ensureSized(tries + 1));
-    }
+    if ((W < 10 || H < 10) && tries < 10) requestAnimationFrame(() => ensureSized(tries + 1));
   }
 
   window.addEventListener("resize", () => ensureSized(0));
@@ -70,10 +60,15 @@
   const CELL_GAP = 6;
 
   const BALL_RADIUS = 5;
-  const BALL_SPEED = 720;  // px/sec
-  const SHOT_INTERVAL = 40; // ms
+  const BALL_SPEED = 720;      // px/sec
+  const SHOT_INTERVAL = 40;    // ms
   const MIN_AIM_ANGLE = -Math.PI + 0.25;
   const MAX_AIM_ANGLE = -0.25;
+
+  // Платформа
+  const PADDLE_H = 10;
+  const PADDLE_Y_OFFSET = 26; // от низа
+  let paddle = { x: 0, y: 0, w: 120, h: PADDLE_H };
 
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
@@ -107,40 +102,44 @@
   let balls = []; // active balls {x,y,vx,vy,alive}
   let ballsLaunched = 0;
   let ballsReturned = 0;
-  let lastReturnX = null;
 
-  function getShooterPos() {
-    const x = lastReturnX ?? (W / 2);
-    const y = H - 18;
-    return { x: clamp(x, 16, W - 16), y };
-  }
+  // куда “возвращаем” старт следующего выстрела
+  let lastReturnX = null;
 
   function syncUI() {
     uiBalls.textContent = "x" + ballsTotal;
     uiRound.textContent = "Round " + round;
   }
 
+  function updatePaddleGeometry() {
+    // адаптивная ширина платформы
+    paddle.w = clamp(W * 0.28, 90, 150);
+    paddle.h = PADDLE_H;
+    paddle.y = H - PADDLE_Y_OFFSET;
+
+    if (paddle.x === 0) {
+      paddle.x = (lastReturnX ?? (W / 2)) - paddle.w / 2;
+    }
+
+    paddle.x = clamp(paddle.x, 8, W - paddle.w - 8);
+  }
+
   function spawnNewRow() {
-    // ГАРАНТИРУЕМ что что-то появится
-    let spawnedSomething = false;
+    let spawned = false;
     const row = 0;
 
     for (let col = 0; col < GRID_COLS; col++) {
       const r = Math.random();
-
       if (r < 0.62) {
         blocks.push({ col, row, hp: round * 2 + randInt(0, round) });
-        spawnedSomething = true;
+        spawned = true;
       } else if (r < 0.78) {
         gems.push({ col, row });
-        spawnedSomething = true;
+        spawned = true;
       }
     }
 
-    // если вдруг ничего — добавим блок по центру
-    if (!spawnedSomething) {
-      blocks.push({ col: Math.floor(GRID_COLS / 2), row, hp: round * 2 });
-    }
+    if (!spawned) blocks.push({ col: Math.floor(GRID_COLS / 2), row, hp: round * 2 });
   }
 
   function shiftDown() {
@@ -162,12 +161,17 @@
     ballsReturned = 0;
     lastReturnX = null;
 
+    paddle.x = 0; // пересчитается в updatePaddleGeometry()
+
     spawnNewRow();
     syncUI();
-    hint.style.opacity = "1";
+    if (hint) {
+      hint.textContent = "Проведи и отпусти, чтобы выстрелить";
+      hint.style.opacity = "1";
+    }
   }
 
-  // --- Physics helpers ---
+  // --- Collision helpers ---
   function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
     const nx = clamp(cx, rx, rx + rw);
     const ny = clamp(cy, ry, ry + rh);
@@ -189,17 +193,49 @@
     else ball.vy *= -1;
   }
 
+  // Отражение от платформы с “углом” по месту удара
+  function bounceFromPaddle(ball) {
+    // нормализуем точку удара: -1 (лево) .. +1 (право)
+    const hitX = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+    const t = clamp(hitX, -1, 1);
+
+    // сохраняем скорость, меняем направление
+    const speed = Math.hypot(ball.vx, ball.vy) || BALL_SPEED;
+
+    // чем ближе к краю — тем больше горизонтальная составляющая
+    const maxDeflect = 0.85; // насколько можно “увести” по горизонтали
+    const vx = t * maxDeflect * speed;
+
+    // вверх (vy отрицательная)
+    const vy = -Math.sqrt(Math.max(10, speed * speed - vx * vx));
+
+    ball.vx = vx;
+    ball.vy = vy;
+
+    // чуть поднимаем, чтобы не залип
+    ball.y = paddle.y - BALL_RADIUS - 0.5;
+  }
+
   // --- Shooting ---
+  function getShooterPos() {
+    // старт из центра платформы, чуть выше неё
+    return {
+      x: paddle.x + paddle.w / 2,
+      y: paddle.y - 14
+    };
+  }
+
   function startShot(angle) {
     if (isShooting) return;
     isShooting = true;
-    hint.style.opacity = "0";
+    if (hint) hint.style.opacity = "0";
 
     balls = [];
     ballsLaunched = 0;
     ballsReturned = 0;
 
     const shooter = getShooterPos();
+
     const timer = setInterval(() => {
       if (ballsLaunched >= ballsTotal) {
         clearInterval(timer);
@@ -225,7 +261,10 @@
       syncUI();
 
       if (checkLose()) {
-        hint.textContent = "Проигрыш :( Потяни и отпусти, чтобы начать заново";
+        if (hint) {
+          hint.textContent = "Проигрыш :( Потяни и отпусти, чтобы начать заново";
+          hint.style.opacity = "1";
+        }
         resetGame();
       }
     }
@@ -240,19 +279,38 @@
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
 
+  // ВАЖНО: если идёт стрельба — drag двигает платформу
   function onDown(e) {
-    if (isShooting) return;
+    const p = getPosFromEvent(e);
+
+    if (isShooting) {
+      // перемещаем платформу под палец
+      paddle.x = p.x - paddle.w / 2;
+      paddle.x = clamp(paddle.x, 8, W - paddle.w - 8);
+      return;
+    }
+
     isAiming = true;
-    aimStart = getPosFromEvent(e);
-    aimEnd = aimStart;
+    aimStart = p;
+    aimEnd = p;
   }
 
   function onMove(e) {
+    const p = getPosFromEvent(e);
+
+    if (isShooting) {
+      paddle.x = p.x - paddle.w / 2;
+      paddle.x = clamp(paddle.x, 8, W - paddle.w - 8);
+      return;
+    }
+
     if (!isAiming) return;
-    aimEnd = getPosFromEvent(e);
+    aimEnd = p;
   }
 
   function onUp() {
+    if (isShooting) return;
+
     if (!isAiming) return;
     isAiming = false;
 
@@ -263,8 +321,7 @@
     const dx = a1.x - a0.x;
     const dy = a1.y - a0.y;
 
-    // “тянем” и стреляем вверх
-    let ang = Math.atan2(dy, dx) + Math.PI;
+    let ang = Math.atan2(dy, dx) + Math.PI; // тянем и стреляем вверх
     ang = clamp(ang, MIN_AIM_ANGLE, MAX_AIM_ANGLE);
 
     aimStart = null;
@@ -281,10 +338,11 @@
   canvas.addEventListener("touchmove", onMove, { passive: false });
   window.addEventListener("touchend", onUp, { passive: false });
 
-  // --- Update/draw ---
+  // --- Update / draw ---
   function update(dt) {
-    resizeCanvasToDisplaySize(); // безопасно вызывать каждый кадр
+    resizeCanvasToDisplaySize();
     computeCellSize();
+    updatePaddleGeometry();
 
     for (const ball of balls) {
       if (!ball.alive) continue;
@@ -296,6 +354,12 @@
       if (ball.x - BALL_RADIUS <= 0) { ball.x = BALL_RADIUS; ball.vx *= -1; }
       if (ball.x + BALL_RADIUS >= W) { ball.x = W - BALL_RADIUS; ball.vx *= -1; }
       if (ball.y - BALL_RADIUS <= 0) { ball.y = BALL_RADIUS; ball.vy *= -1; }
+
+      // Платформа: отбивание
+      if (circleRectCollision(ball.x, ball.y, BALL_RADIUS, paddle.x, paddle.y, paddle.w, paddle.h)) {
+        // если летит вниз — отбиваем, если вверх — не трогаем (чтобы не заедало)
+        if (ball.vy > 0) bounceFromPaddle(ball);
+      }
 
       // блоки
       for (let i = blocks.length - 1; i >= 0; i--) {
@@ -321,20 +385,26 @@
         }
       }
 
-      // низ: возвращение
-      if (ball.y + BALL_RADIUS >= H) {
+      // если шар прошёл НИЖЕ платформы — считаем “упал/вернулся”
+      if (ball.y - BALL_RADIUS > H + 20) {
         ball.alive = false;
         ballsReturned += 1;
-        if (lastReturnX === null) lastReturnX = clamp(ball.x, 16, W - 16);
+
+        // точка старта следующего раунда — куда упал первый шар
+        if (lastReturnX === null) {
+          lastReturnX = clamp(ball.x, 16, W - 16);
+          paddle.x = lastReturnX - paddle.w / 2;
+        }
+
         endRoundIfDone();
       }
     }
 
-    // debug текст
     setDebug(
       `W×H: ${W}×${H}\n` +
-      `blocks: ${blocks.length}  gems: ${gems.length}\n` +
-      `ballsTotal: ${ballsTotal}  active: ${balls.filter(b=>b.alive).length}\n` +
+      `paddle: x=${Math.round(paddle.x)} w=${Math.round(paddle.w)}\n` +
+      `blocks: ${blocks.length} gems: ${gems.length}\n` +
+      `ballsTotal: ${ballsTotal} active: ${balls.filter(b=>b.alive).length}\n` +
       `shooting: ${isShooting}`
     );
   }
@@ -362,7 +432,6 @@
   }
 
   function draw() {
-    // фон
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = "#0b1020";
     ctx.fillRect(0, 0, W, H);
@@ -404,11 +473,27 @@
     // прицел
     drawAimLine();
 
-    // shooter
-    const s = getShooterPos();
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    // Платформа
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    const rr = 8; // “скругление” визуально
     ctx.beginPath();
-    ctx.arc(s.x, s.y, 8, 0, Math.PI * 2);
+    ctx.moveTo(paddle.x + rr, paddle.y);
+    ctx.lineTo(paddle.x + paddle.w - rr, paddle.y);
+    ctx.quadraticCurveTo(paddle.x + paddle.w, paddle.y, paddle.x + paddle.w, paddle.y + rr);
+    ctx.lineTo(paddle.x + paddle.w, paddle.y + paddle.h - rr);
+    ctx.quadraticCurveTo(paddle.x + paddle.w, paddle.y + paddle.h, paddle.x + paddle.w - rr, paddle.y + paddle.h);
+    ctx.lineTo(paddle.x + rr, paddle.y + paddle.h);
+    ctx.quadraticCurveTo(paddle.x, paddle.y + paddle.h, paddle.x, paddle.y + paddle.h - rr);
+    ctx.lineTo(paddle.x, paddle.y + rr);
+    ctx.quadraticCurveTo(paddle.x, paddle.y, paddle.x + rr, paddle.y);
+    ctx.closePath();
+    ctx.fill();
+
+    // shooter точка (из центра платформы)
+    const s = getShooterPos();
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 5, 0, Math.PI * 2);
     ctx.fill();
 
     // шары
@@ -433,7 +518,6 @@
     requestAnimationFrame(loop);
   }
 
-  // старт
   resetGame();
   requestAnimationFrame(loop);
 })();
