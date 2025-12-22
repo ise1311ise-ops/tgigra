@@ -2,127 +2,36 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Морской бой</title>
-  <link rel="stylesheet" href="style.css" />
-  <!-- Telegram WebApp (можно оставить, даже если запускаешь в браузере) -->
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Bricks vs Balls</title>
+
+  <!-- Telegram WebApp API -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app" class="app">
-
-    <!-- TOP BAR -->
-    <header class="topbar">
-      <div class="brand">⚓ Морской бой</div>
-      <div class="topbar-actions">
-        <button id="btnBack" class="btn ghost hidden">Назад</button>
-      </div>
-    </header>
-
-    <!-- SCREEN: MENU -->
-    <section id="screenMenu" class="screen active">
-      <div class="menu">
-        <button class="menu-item" id="btnOnline">Онлайн игра</button>
-        <button class="menu-item" id="btnSettings">Настройки</button>
-        <button class="menu-item" id="btnSupport">Поддержка</button>
-        <button class="menu-item" id="btnShare">Поделиться игрой</button>
-      </div>
-
-      <div class="hint">
-        Режим: горизонтальный. В Telegram игра будет выглядеть лучше в landscape.
-      </div>
-    </section>
-
-    <!-- SCREEN: SETUP / PLACEMENT -->
-    <section id="screenSetup" class="screen">
-      <div class="setup">
-        <div class="panel">
-          <div class="panel-title">Твоё поле</div>
-          <div id="myPlacementGrid" class="grid"></div>
-          <div class="panel-subhint">Клик по кораблю на поле — поворот</div>
-        </div>
-
-        <div class="panel right">
-          <div class="panel-title">Корабли</div>
-          <div id="shipTray" class="ship-tray"></div>
-
-          <div class="setup-actions">
-            <button id="btnAutoPlace" class="btn">Авторасстановка</button>
-            <button id="btnClear" class="btn ghost">Очистить</button>
-            <button id="btnNextToLobby" class="btn primary" disabled>Далее</button>
-          </div>
-
-          <div class="panel-subhint">
-            Перетащи корабль на поле. Нельзя пересекаться и касаться (по диагонали тоже).
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SCREEN: LOBBY -->
-    <section id="screenLobby" class="screen">
-      <div class="lobby">
-        <div class="panel">
-          <div class="panel-title">Игроки онлайн</div>
-          <div id="playersList" class="players"></div>
-        </div>
-
-        <div class="panel right">
-          <div class="panel-title lobby-head">
-            <span>Комната</span>
-            <div class="lobby-actions">
-              <button id="btnToggleChat" class="btn">Чат</button>
-              <button id="btnLeaveLobby" class="btn ghost">Выйти</button>
-            </div>
-          </div>
-
-          <div id="chatWrap" class="chat hidden">
-            <div id="chatMessages" class="chat-messages"></div>
-            <div class="chat-input">
-              <input id="chatText" type="text" placeholder="Сообщение..." />
-              <button id="chatSend" class="btn primary">Отправить</button>
-            </div>
-          </div>
-
-          <div id="lobbyInfo" class="lobby-info">
-            Выбери игрока слева, чтобы отправить приглашение на 1v1.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SCREEN: BATTLE -->
-    <section id="screenBattle" class="screen">
-      <div class="battle">
-        <div class="panel">
-          <div class="panel-title">Твоё поле</div>
-          <div id="myBattleGrid" class="grid"></div>
-          <div id="battleStatusLeft" class="panel-subhint"></div>
-        </div>
-
-        <div class="panel right">
-          <div class="panel-title">Поле противника</div>
-          <div id="enemyBattleGrid" class="grid"></div>
-          <div id="battleStatusRight" class="panel-subhint">Кликай по клеткам — выстрел (пока заглушка)</div>
-
-          <div class="battle-actions">
-            <button id="btnExitBattle" class="btn ghost">Выйти в меню</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SIMPLE MODAL -->
-    <div id="modal" class="modal hidden">
-      <div class="modal-card">
-        <div id="modalText" class="modal-text"></div>
-        <div class="modal-actions">
-          <button id="modalOk" class="btn primary">Ок</button>
-        </div>
+  <div id="ui">
+    <div class="topbar">
+      <div class="title">BRICKS vs BALLS</div>
+      <div class="stats">
+        <span id="ballsCount">x1</span>
+        <span id="round">Round 1</span>
       </div>
     </div>
-
+    <canvas id="game"></canvas>
+    <div class="hint" id="hint">Проведи и отпусти, чтобы выстрелить</div>
   </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      // можно подстроить фон под тему
+      document.documentElement.style.background = tg.themeParams?.bg_color || "#0b1020";
+    }
+  </script>
 
   <script src="game.js"></script>
 </body>
