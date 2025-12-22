@@ -1,668 +1,464 @@
-// ================= Router / Screen switching =================
-const screens = {
-  menu: document.getElementById('screen-menu'),
-  placement: document.getElementById('screen-placement'),
-  lobby: document.getElementById('screen-lobby'),
-  battle: document.getElementById('screen-battle'),
-};
+/* =========================
+   Морской бой — UI макет
+   - отдельные экраны (home/placement/lobby/duel/settings/share/support)
+   - чат открывается кнопкой сверху
+   - игроки user1..user12
+   - выбор игрока -> 1x1
+   - без прокрутки + авто-масштаб под экран
+   ========================= */
 
-function showScreen(name, push = true){
-  Object.entries(screens).forEach(([k, el]) => {
-    if(k === name) el.classList.remove('hidden');
-    else el.classList.add('hidden');
-  });
-  if(push) location.hash = `#${name}`;
-}
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
 
-window.addEventListener('hashchange', () => {
-  const h = (location.hash || '#menu').replace('#','');
-  if(screens[h]) showScreen(h, false);
-});
+const screens = $$(".screen");
+const topTitle = $("#topTitle");
+const btnBack = $("#btnBack");
+const btnChat = $("#btnChat");
 
-// ================= Modal =================
-const modal = document.getElementById('modal');
-const modalTitle = document.getElementById('modalTitle');
-const modalBody = document.getElementById('modalBody');
-document.getElementById('modalClose').onclick = closeModal;
-document.getElementById('modalOk').onclick = closeModal;
+const chatOverlay = $("#chatOverlay");
+const btnChatClose = $("#btnChatClose");
+const chatBody = $("#chatBody");
+const chatInput = $("#chatInput");
+const btnSend = $("#btnSend");
 
-function openModal(title, html){
-  modalTitle.textContent = title;
-  modalBody.innerHTML = html;
-  modal.classList.remove('hidden');
-}
-function closeModal(){ modal.classList.add('hidden'); }
+const shareLink = $("#shareLink");
+const btnCopy = $("#btnCopy");
+const copyStatus = $("#copyStatus");
 
-// ================= Share helper =================
-async function shareLink(){
-  const url = location.href.split('#')[0] + '#menu';
-  try{
-    if(navigator.share){
-      await navigator.share({ title: 'Морской Бой', text: 'Заходи играть!', url });
-    }else{
-      await navigator.clipboard.writeText(url);
-      openModal('Поделиться', `Ссылка скопирована:<br><b>${url}</b>`);
-    }
-  }catch(e){
-    try{
-      await navigator.clipboard.writeText(url);
-      openModal('Поделиться', `Ссылка скопирована:<br><b>${url}</b>`);
-    }catch(_){
-      openModal('Поделиться', `Вот ссылка (скопируй вручную):<br><b>${url}</b>`);
-    }
-  }
-}
+const myBoard = $("#myBoard");
+const duelMyBoard = $("#duelMyBoard");
+const duelEnemyBoard = $("#duelEnemyBoard");
 
-// ================= Chat Drawer =================
-const chatDrawer = document.getElementById('chatDrawer');
-const btnOpenChat = document.getElementById('btn-open-chat');
-const btnBattleChat = document.getElementById('btn-battle-chat');
-const btnCloseChat = document.getElementById('btn-close-chat');
+const fleetEl = $("#fleet");
+const btnRotate = $("#btnRotate");
+const rotTxt = $("#rotTxt");
+const btnStartLobby = $("#btnStartLobby");
+const btnBackToPlacement = $("#btnBackToPlacement");
 
-function openChat(){ chatDrawer.classList.remove('hidden'); }
-function closeChat(){ chatDrawer.classList.add('hidden'); }
+const playersGrid = $("#playersGrid");
+const enemyNameEl = $("#enemyName");
+const btnLeaveDuel = $("#btnLeaveDuel");
+const btnMockShot = $("#btnMockShot");
 
-btnCloseChat.onclick = closeChat;
-btnOpenChat.onclick = openChat;
-btnBattleChat.onclick = openChat;
+const setHints = $("#setHints");
+const themePaper = $("#themePaper");
+const themeDark = $("#themeDark");
 
-chatDrawer.addEventListener('click', (e) => {
-  if(e.target === chatDrawer) closeChat();
-});
+let currentScreen = "home";
+let navStack = ["home"];
 
-// ================= Menu actions =================
-document.getElementById('btn-online').onclick = () => showScreen('placement');
-document.getElementById('btn-settings').onclick = () => {
-  openModal('Настройки', `
-    <div>• Звук: <b>вкл</b> (макет)</div>
-    <div>• Подсказки: <b>вкл</b> (макет)</div>
-    <div>• Тема: <b>тетрадь</b></div>
-  `);
-};
-document.getElementById('btn-share').onclick = shareLink;
-document.getElementById('btn-support').onclick = () => {
-  openModal('Поддержка', `
-    <b>Как играть:</b><br>
-    1) «Онлайн игра» → расставь корабли.<br>
-    2) «Дальше» → Игровой зал.<br>
-    3) Выбери игрока → начнётся бой 1×1.<br>
-    <br><div style="opacity:.85">Сейчас это локальный макет.</div>
-  `);
-};
-document.getElementById('btn-menu-help').onclick = () => {
-  openModal('Помощь', 'Нажми <b>Онлайн игра</b> → расставь корабли → <b>Дальше</b>.');
-};
-document.getElementById('btn-menu-more').onclick = () => {
-  openModal('Меню', 'Позже добавим: статистика / достижения / магазин.');
-};
-
-document.getElementById('btn-home-from-placement').onclick = () => showScreen('menu');
-document.getElementById('btn-share-from-placement').onclick = shareLink;
-
-document.getElementById('btn-home-from-lobby').onclick = () => showScreen('menu');
-document.getElementById('btn-back-to-placement').onclick = () => showScreen('placement');
-
-// ================= Placement (manual + auto) =================
-const grid11El = document.getElementById('player-grid11');
-const fleetEl = document.getElementById('fleet');
-const btnRotate = document.getElementById('btn-rotate');
-const btnAuto = document.getElementById('btn-auto');
-const btnStart = document.getElementById('btn-start');
-const btnReset = document.getElementById('btn-reset-placement');
-const placeStatus = document.getElementById('place-status');
-
-const SIZE = 10;
-const letters = ['А','Б','В','Г','Д','Е','Ж','З','И','К'];
-const shipSet = [4,3,3,2,2,2,1,1,1,1];
-
-let playerGrid = makeGrid();
-let orientation = 'h';
-let selectedShipIndex = 0;
-let shipsRemaining = shipSet.map((len, idx) => ({ id: idx, len, placed: false }));
-let placedShips = [];
-
-function makeGrid(){
-  return Array.from({length: SIZE}, () => Array.from({length: SIZE}, () => 0));
-}
+let rotation = "H"; // H/V
+let selectedShipIdx = 0;
 
 /**
- * Build one single 11x11 grid:
- * (0,0) corner
- * top row: numbers 1..10
- * left col: letters
- * rest: playable cells with dataset r/c
+ * Флот (как в классике):
+ * 4,3,3,2,2,2,1,1,1,1
+ * Для макета — достаточно.
  */
-function buildGrid11(){
-  grid11El.innerHTML = '';
-  for(let r=0;r<11;r++){
-    for(let c=0;c<11;c++){
-      if(r===0 && c===0){
-        const d = document.createElement('div');
-        d.className = 'axisCell cornerCell';
-        grid11El.appendChild(d);
-        continue;
-      }
-      if(r===0 && c>0){
-        const d = document.createElement('div');
-        d.className = 'axisCell';
-        d.textContent = String(c);
-        grid11El.appendChild(d);
-        continue;
-      }
-      if(c===0 && r>0){
-        const d = document.createElement('div');
-        d.className = 'axisCell';
-        d.textContent = letters[r-1];
-        grid11El.appendChild(d);
-        continue;
-      }
+const fleet = [
+  { len: 4, placed: false },
+  { len: 3, placed: false },
+  { len: 3, placed: false },
+  { len: 2, placed: false },
+  { len: 2, placed: false },
+  { len: 2, placed: false },
+  { len: 1, placed: false },
+  { len: 1, placed: false },
+  { len: 1, placed: false },
+  { len: 1, placed: false },
+];
 
-      // playable cell
-      const cell = document.createElement('div');
-      cell.className = 'playCell';
-      cell.dataset.r = String(r-1);
-      cell.dataset.c = String(c-1);
-      cell.addEventListener('click', () => onPlaceClick(r-1, c-1));
-      grid11El.appendChild(cell);
-    }
+const gridSize = 10;
+const letters = ["А","Б","В","Г","Д","Е","Ж","З","И","К"];
+
+let myGrid = makeEmptyGrid();
+let duelEnemyGrid = makeEmptyGrid(); // 0 empty, 2 miss, 3 hit (UI)
+let duelMyGrid = makeEmptyGrid();    // копия расстановки
+
+function makeEmptyGrid(){
+  return Array.from({length:gridSize}, () => Array(gridSize).fill(0));
+}
+
+/* ============ Навигация ============ */
+function showScreen(name, push=true){
+  currentScreen = name;
+  screens.forEach(s => s.classList.toggle("isActive", s.dataset.screen === name));
+
+  if(push){
+    navStack.push(name);
+  }
+
+  // заголовок
+  const titles = {
+    home: "Морской Бой — онлайн игра",
+    placement: "Расстановка",
+    lobby: "Игровой зал",
+    duel: "Игра 1×1",
+    settings: "Настройки",
+    share: "Поделиться",
+    support: "Поддержка",
+  };
+  topTitle.textContent = titles[name] ?? "Морской Бой";
+
+  // кнопка слева: дом/назад
+  btnBack.textContent = (name === "home") ? "✕" : "⌂";
+
+  // чат доступен только в lobby/duel
+  const chatEnabled = (name === "lobby" || name === "duel");
+  btnChat.style.visibility = chatEnabled ? "visible" : "hidden";
+
+  // скрыть чат при переходах
+  closeChat();
+
+  // особые действия
+  if(name === "share"){
+    shareLink.value = location.href;
+    copyStatus.textContent = "";
+  }
+  if(name === "lobby"){
+    // ничего
+  }
+  if(name === "duel"){
+    // ничего
   }
 }
 
-function renderGrid11(){
-  const blocked = computeBlocked(playerGrid);
-  const blockedSet = new Set(blocked.map(x => `${x.r},${x.c}`));
+btnBack.addEventListener("click", () => {
+  if(currentScreen === "home"){
+    // “закрыть” — просто остаёмся
+    return;
+  }
+  // возвращаемся на home
+  navStack = ["home"];
+  showScreen("home", false);
+});
 
-  grid11El.querySelectorAll('.playCell').forEach(cell => {
-    const r = Number(cell.dataset.r);
-    const c = Number(cell.dataset.c);
-    const hasShip = playerGrid[r][c] === 1;
-
-    cell.classList.toggle('ship', hasShip);
-    cell.classList.toggle('blocked', !hasShip && blockedSet.has(`${r},${c}`));
+/* клики по кнопкам data-nav */
+$$("[data-nav]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const target = btn.dataset.nav;
+    if(target) showScreen(target);
   });
+});
+
+/* ============ ЧАТ ============ */
+function openChat(){
+  chatOverlay.classList.add("isOpen");
+  chatOverlay.setAttribute("aria-hidden","false");
+}
+function closeChat(){
+  chatOverlay.classList.remove("isOpen");
+  chatOverlay.setAttribute("aria-hidden","true");
+}
+btnChat.addEventListener("click", () => {
+  if(chatOverlay.classList.contains("isOpen")) closeChat();
+  else openChat();
+});
+btnChatClose.addEventListener("click", closeChat);
+
+btnSend.addEventListener("click", sendChat);
+chatInput.addEventListener("keydown", (e) => {
+  if(e.key === "Enter") sendChat();
+});
+function sendChat(){
+  const txt = chatInput.value.trim();
+  if(!txt) return;
+  const div = document.createElement("div");
+  div.className = "msg";
+  div.innerHTML = `<b>me:</b> ${escapeHtml(txt)}`;
+  chatBody.appendChild(div);
+  chatInput.value = "";
+  // небольшой “ответ”
+  setTimeout(() => {
+    const r = document.createElement("div");
+    r.className = "msg";
+    r.innerHTML = `<b>user${rand(1,12)}:</b> ок 👍`;
+    chatBody.appendChild(r);
+  }, 300);
+}
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
 }
 
-function computeBlocked(grid){
-  const out = [];
-  const seen = new Set();
-  for(let r=0;r<SIZE;r++){
-    for(let c=0;c<SIZE;c++){
-      if(grid[r][c] !== 1) continue;
-      for(let dr=-1; dr<=1; dr++){
-        for(let dc=-1; dc<=1; dc++){
-          const rr = r+dr, cc = c+dc;
-          if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) continue;
-          const key = rr+','+cc;
-          if(!seen.has(key)){
-            seen.add(key);
-            out.push({r:rr,c:cc});
-          }
-        }
-      }
+/* ============ Поделиться ============ */
+btnCopy?.addEventListener("click", async () => {
+  try{
+    await navigator.clipboard.writeText(shareLink.value);
+    copyStatus.textContent = "Ссылка скопирована ✅";
+  }catch{
+    copyStatus.textContent = "Не удалось скопировать (в браузере нет доступа).";
+  }
+});
+
+/* ============ Лейблы (А..К и 1..10) ============ */
+function renderLabels(topEl, leftEl){
+  if(topEl){
+    topEl.innerHTML = "";
+    for(let i=1;i<=10;i++){
+      const d = document.createElement("div");
+      d.textContent = i;
+      topEl.appendChild(d);
     }
   }
-  return out;
+  if(leftEl){
+    leftEl.innerHTML = "";
+    letters.forEach(l => {
+      const d = document.createElement("div");
+      d.textContent = l;
+      leftEl.appendChild(d);
+    });
+  }
 }
+renderLabels($("#labelsTop"), $("#labelsLeft"));
+renderLabels($("#labelsTop2"), $("#labelsLeft2"));
+renderLabels($("#labelsTop3"), $("#labelsLeft3"));
 
+/* ============ Поля (отрисовка клеток) ============ */
+function buildBoard(el, onCellClick){
+  el.innerHTML = "";
+  for(let r=0;r<10;r++){
+    for(let c=0;c<10;c++){
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      cell.addEventListener("click", () => onCellClick?.(r,c,cell));
+      el.appendChild(cell);
+    }
+  }
+}
+buildBoard(myBoard, onPlaceClick);
+buildBoard(duelMyBoard, null);
+buildBoard(duelEnemyBoard, onEnemyShot);
+
+/* ============ Флот UI ============ */
+function shipTitle(len){
+  if(len===4) return "4-палубный";
+  if(len===3) return "3-палубный";
+  if(len===2) return "2-палубный";
+  return "1-палубный";
+}
 function renderFleet(){
-  fleetEl.innerHTML = '';
-  shipsRemaining.forEach((s, idx) => {
-    const item = document.createElement('div');
-    item.className = 'shipPick' + (!s.placed && idx === selectedShipIndex ? ' active' : '');
-    item.style.opacity = s.placed ? '0.35' : '1';
+  fleetEl.innerHTML = "";
+  fleet.forEach((s, idx) => {
+    const card = document.createElement("div");
+    card.className = "shipCard" + (idx===selectedShipIdx ? " isSelected":"");
+    if(s.placed) card.style.opacity = "0.45";
 
-    const preview = document.createElement('div');
-    preview.className = 'shipPreview';
+    const dots = document.createElement("div");
+    dots.className = "shipDots";
     for(let i=0;i<s.len;i++){
-      const p = document.createElement('div');
-      p.className = 'pip';
-      preview.appendChild(p);
+      const sp = document.createElement("span");
+      dots.appendChild(sp);
     }
 
-    const meta = document.createElement('div');
-    meta.className = 'shipMeta';
-    meta.textContent = `${s.len}-палубный`;
+    const name = document.createElement("div");
+    name.className = "shipName";
+    name.textContent = shipTitle(s.len);
 
-    item.appendChild(preview);
-    item.appendChild(meta);
+    card.appendChild(dots);
+    card.appendChild(name);
 
-    item.onclick = () => {
-      if(s.placed) return;
-      selectedShipIndex = idx;
+    card.addEventListener("click", () => {
+      selectedShipIdx = idx;
       renderFleet();
-      placeStatus.textContent = `Выбран: ${s.len} • ${orientation === 'h' ? 'гориз.' : 'вертик.'}`;
-    };
+    });
 
-    fleetEl.appendChild(item);
+    fleetEl.appendChild(card);
   });
 }
+renderFleet();
 
-function canPlaceShip(r,c,len,ori, grid){
-  const cells = [];
-  for(let i=0;i<len;i++){
-    const rr = r + (ori === 'v' ? i : 0);
-    const cc = c + (ori === 'h' ? i : 0);
-    if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) return null;
-    if(grid[rr][cc] === 1) return null;
-    cells.push({r:rr,c:cc});
-  }
+/* ============ Поворот ============ */
+btnRotate.addEventListener("click", () => {
+  rotation = (rotation === "H") ? "V" : "H";
+  rotTxt.textContent = (rotation === "H") ? "Гориз." : "Вертик.";
+});
 
-  // no touching
-  for(const cell of cells){
-    for(let dr=-1; dr<=1; dr++){
-      for(let dc=-1; dc<=1; dc++){
-        const rr = cell.r+dr, cc = cell.c+dc;
-        if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) continue;
-        const isPart = cells.some(x => x.r===rr && x.c===cc);
-        if(!isPart && grid[rr][cc] === 1) return null;
-      }
-    }
-  }
-
-  return cells;
-}
-
-function placeShip(cells, ship){
-  cells.forEach(({r,c}) => playerGrid[r][c] = 1);
-  ship.placed = true;
-  placedShips.push({ id: ship.id, len: ship.len, cells });
-}
-
-function allPlaced(){
-  return shipsRemaining.every(s => s.placed);
-}
-
-function selectNextShip(){
-  const idx = shipsRemaining.findIndex(s => !s.placed);
-  if(idx >= 0) selectedShipIndex = idx;
-}
-
+/* ============ Расстановка (упрощённо, но выглядит) ============ */
 function onPlaceClick(r,c){
-  let ship = shipsRemaining[selectedShipIndex];
-  if(!ship || ship.placed) selectNextShip();
-  ship = shipsRemaining[selectedShipIndex];
+  const ship = fleet[selectedShipIdx];
   if(!ship || ship.placed) return;
 
-  const cells = canPlaceShip(r,c, ship.len, orientation, playerGrid);
-  if(!cells){
-    placeStatus.textContent = `Нельзя поставить сюда (${ship.len})`;
-    return;
+  const cells = [];
+  for(let i=0;i<ship.len;i++){
+    const rr = rotation==="H" ? r : r+i;
+    const cc = rotation==="H" ? c+i : c;
+    if(rr<0||rr>=10||cc<0||cc>=10) return;
+    if(myGrid[rr][cc] === 1) return;
+    cells.push([rr,cc]);
   }
+  // ставим
+  cells.forEach(([rr,cc]) => myGrid[rr][cc] = 1);
+  ship.placed = true;
 
-  placeShip(cells, ship);
-  renderGrid11();
+  renderMyBoard();
   renderFleet();
-
-  if(allPlaced()){
-    placeStatus.textContent = 'Готово! Нажми «Дальше».';
-    btnStart.disabled = false;
-  }else{
-    selectNextShip();
-    renderFleet();
-    placeStatus.textContent = `Следующий: ${shipsRemaining[selectedShipIndex].len}`;
-  }
+  updateStartEnabled();
 }
 
-btnRotate.onclick = () => {
-  orientation = (orientation === 'h') ? 'v' : 'h';
-  placeStatus.textContent = `Ориентация: ${orientation === 'h' ? 'гориз.' : 'вертик.'}`;
-};
+function renderMyBoard(){
+  const cells = $$(".cell", myBoard);
+  cells.forEach(cell => {
+    const r = +cell.dataset.r;
+    const c = +cell.dataset.c;
+    cell.classList.toggle("ship", myGrid[r][c] === 1);
+  });
+}
 
-btnReset.onclick = resetPlacement;
+function updateStartEnabled(){
+  const ok = fleet.every(s => s.placed);
+  btnStartLobby.disabled = !ok;
+}
+
+btnStartLobby.addEventListener("click", () => {
+  // переносим расстановку в 1x1 (твоё поле)
+  duelMyGrid = myGrid.map(row => row.slice());
+  renderDuelBoards();
+  showScreen("lobby");
+});
+
+btnBackToPlacement?.addEventListener("click", () => showScreen("placement"));
+
+/* ============ ЛОББИ (user1..user12) ============ */
+function renderPlayers(){
+  playersGrid.innerHTML = "";
+  for(let i=1;i<=12;i++){
+    const name = `user${i}`;
+    const ping = rand(78, 99);
+
+    const card = document.createElement("div");
+    card.className = "playerCard";
+    card.innerHTML = `
+      <div class="playerTop">
+        <div class="playerName">${name}</div>
+        <div class="playerPing">${ping}%</div>
+      </div>
+      <div class="playerBar"><div style="width:${ping}%"></div></div>
+      <div class="hintMini">нажми → 1×1</div>
+    `;
+
+    card.addEventListener("click", () => {
+      enemyNameEl.textContent = name;
+      showScreen("duel");
+    });
+
+    playersGrid.appendChild(card);
+  }
+}
+renderPlayers();
+
+/* ============ 1×1 (макет выстрела) ============ */
+function renderDuelBoards(){
+  // моё поле показывает корабли (из расстановки)
+  const myCells = $$(".cell", duelMyBoard);
+  myCells.forEach(cell => {
+    const r = +cell.dataset.r;
+    const c = +cell.dataset.c;
+    cell.classList.toggle("ship", duelMyGrid[r][c] === 1);
+    cell.classList.remove("hit","miss");
+  });
+
+  // поле противника (пустое, выстрелы как UI)
+  const enCells = $$(".cell", duelEnemyBoard);
+  enCells.forEach(cell => {
+    const r = +cell.dataset.r;
+    const c = +cell.dataset.c;
+    cell.classList.remove("ship");
+    cell.classList.toggle("hit", duelEnemyGrid[r][c] === 3);
+    cell.classList.toggle("miss", duelEnemyGrid[r][c] === 2);
+  });
+}
+
+function onEnemyShot(r,c){
+  if(duelEnemyGrid[r][c] !== 0) return;
+  // макет: случайно попал/мимо
+  const hit = Math.random() < 0.28;
+  duelEnemyGrid[r][c] = hit ? 3 : 2;
+  renderDuelBoards();
+}
+
+btnMockShot?.addEventListener("click", () => {
+  // сделать случайный выстрел
+  const free = [];
+  for(let r=0;r<10;r++){
+    for(let c=0;c<10;c++){
+      if(duelEnemyGrid[r][c] === 0) free.push([r,c]);
+    }
+  }
+  if(!free.length) return;
+  const [r,c] = free[rand(0, free.length-1)];
+  onEnemyShot(r,c);
+});
+
+btnLeaveDuel?.addEventListener("click", () => showScreen("lobby"));
+
+/* ============ Настройки темы ============ */
+themePaper?.addEventListener("click", () => {
+  document.body.classList.add("theme-paper");
+  document.body.classList.remove("theme-dark");
+  themePaper.classList.add("isOn");
+  themeDark.classList.remove("isOn");
+});
+themeDark?.addEventListener("click", () => {
+  document.body.classList.add("theme-dark");
+  document.body.classList.remove("theme-paper");
+  themeDark.classList.add("isOn");
+  themePaper.classList.remove("isOn");
+});
+
+/* ============ Авто-масштаб под экран (ВАЖНО: без прокрутки) ============ */
+function fitStage(){
+  const topbarH = $(".topbar").getBoundingClientRect().height;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight - topbarH;
+
+  const stageW = 980;
+  const stageH = 620;
+
+  // запас под отступы
+  const padding = 18;
+  const availW = Math.max(200, vw - padding*2);
+  const availH = Math.max(200, vh - padding*2);
+
+  // масштаб так, чтобы всё точно влезло
+  let s = Math.min(availW / stageW, availH / stageH);
+
+  // чуть “поджимаем” на очень маленьких экранах
+  s = Math.max(0.45, Math.min(1.0, s));
+
+  document.documentElement.style.setProperty("--uiScale", s.toFixed(4));
+}
+window.addEventListener("resize", fitStage);
+fitStage();
+
+/* ============ Инициализация переходов с Home кнопок ============ */
+$$("[data-nav='placement']").forEach(b => b.addEventListener("click", () => {
+  // reset для наглядности
+  resetPlacement();
+  showScreen("placement");
+}));
 
 function resetPlacement(){
-  playerGrid = makeGrid();
-  orientation = 'h';
-  shipsRemaining = shipSet.map((len, idx) => ({ id: idx, len, placed: false }));
-  placedShips = [];
-  selectedShipIndex = 0;
-  btnStart.disabled = true;
-  placeStatus.textContent = 'Тапни корабль справа → тапни по клетке';
-  renderGrid11();
+  rotation = "H";
+  rotTxt.textContent = "Гориз.";
+  selectedShipIdx = 0;
+
+  myGrid = makeEmptyGrid();
+  fleet.forEach(s => s.placed = false);
+  renderMyBoard();
   renderFleet();
+  updateStartEnabled();
+
+  // очистка дуэли
+  duelEnemyGrid = makeEmptyGrid();
+  renderDuelBoards();
 }
 
-btnAuto.onclick = () => autoPlaceAll();
+/* ============ helpers ============ */
+function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 
-function autoPlaceAll(){
-  resetPlacement();
-  for(const ship of shipsRemaining){
-    let ok = false;
-    for(let t=0;t<800;t++){
-      const ori = Math.random() < 0.5 ? 'h' : 'v';
-      const r = Math.floor(Math.random()*SIZE);
-      const c = Math.floor(Math.random()*SIZE);
-      const cells = canPlaceShip(r,c, ship.len, ori, playerGrid);
-      if(cells){ placeShip(cells, ship); ok = true; break; }
-    }
-    if(!ok){ resetPlacement(); return autoPlaceAll(); }
-  }
-  btnStart.disabled = false;
-  renderGrid11();
-  renderFleet();
-  placeStatus.textContent = 'Авто-расстановка готова! Нажми «Дальше».';
-}
-
-btnStart.onclick = () => {
-  if(!allPlaced()){
-    placeStatus.textContent = 'Сначала расставь все корабли.';
-    return;
-  }
-  initLobbyOnce();
-  showScreen('lobby');
-};
-
-// ================= Lobby: Online Players (NOT rooms) =================
-const playersEl = document.getElementById('players');
-const onlinePercent = document.getElementById('online-percent');
-const youNickEl = document.getElementById('youNick');
-
-const YOU = 'user0';
-const ONLINE_USERS = Array.from({length: 12}, (_, i) => `user${i+1}`);
-
-youNickEl.textContent = YOU;
-onlinePercent.textContent = '96%';
-document.getElementById('badge-online').textContent = String(ONLINE_USERS.length);
-
-let lobbyInited = false;
-
-function initLobbyOnce(){
-  if(lobbyInited) return;
-  lobbyInited = true;
-
-  playersEl.innerHTML = '';
-  ONLINE_USERS.forEach((name, i) => {
-    const card = document.createElement('div');
-    card.className = 'playerCard';
-    card.innerHTML = `
-      <div class="playerName">${escapeHtml(name)}</div>
-      <div class="playerSub">${95 - (i%7)}% • готов</div>
-    `;
-    card.onclick = () => startBattle(name);
-    playersEl.appendChild(card);
-  });
-
-  initChatOnce();
-}
-
-document.getElementById('btn-back-to-placement').onclick = () => showScreen('placement');
-
-// ================= Chat: common room =================
-const chatBox = document.getElementById('chatBox');
-const chatInput = document.getElementById('chatInput');
-const btnSend = document.getElementById('btn-send');
-const btnEmoji = document.getElementById('btn-emoji');
-
-let chatInited = false;
-
-function initChatOnce(){
-  if(chatInited) return;
-  chatInited = true;
-
-  chatBox.innerHTML = '';
-  addMsg('user1', 'привет!');
-  addMsg('user2', 'кто в бой?');
-  addMsg('user3', 'я готов 🙂');
-
-  btnSend.onclick = sendMsg;
-  chatInput.addEventListener('keydown', (e) => {
-    if(e.key === 'Enter') sendMsg();
-  });
-
-  btnEmoji.onclick = () => {
-    chatInput.value += '🙂';
-    chatInput.focus();
-  };
-}
-
-function addMsg(who, text){
-  const wrap = document.createElement('div');
-  wrap.className = 'msg';
-  wrap.innerHTML = `
-    <div class="avatar">${escapeHtml(who.slice(0,2).toUpperCase())}</div>
-    <div class="msgBody">
-      <div class="msgName">${escapeHtml(who)}</div>
-      <div class="msgText">${escapeHtml(text)}</div>
-    </div>
-  `;
-  chatBox.appendChild(wrap);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-function addSys(text){
-  const wrap = document.createElement('div');
-  wrap.className = 'msg';
-  wrap.innerHTML = `
-    <div class="avatar">i</div>
-    <div class="msgBody">
-      <div class="msgName">система</div>
-      <div class="msgText">${escapeHtml(text)}</div>
-    </div>
-  `;
-  chatBox.appendChild(wrap);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-function sendMsg(){
-  const t = chatInput.value.trim();
-  if(!t) return;
-  addMsg(YOU, t);
-  chatInput.value = '';
-
-  const responders = ['user1','user2','user3','user4'];
-  const who = responders[Math.floor(Math.random()*responders.length)];
-  setTimeout(() => addMsg(who, 'ок 🙂'), 400);
-}
-
-// ================= Battle 1x1 (local mock) =================
-const battleOppEl = document.getElementById('battle-opponent');
-const myBattleEl = document.getElementById('battle-my');
-const enemyBattleEl = document.getElementById('battle-enemy');
-const battleStatusL = document.getElementById('battle-status-left');
-const battleStatusR = document.getElementById('battle-status-right');
-const btnBackToLobby = document.getElementById('btn-back-to-lobby');
-const btnBattleExit = document.getElementById('btn-battle-exit');
-const btnBattleRestart = document.getElementById('btn-battle-restart');
-
-btnBackToLobby.onclick = () => showScreen('lobby');
-btnBattleExit.onclick = () => showScreen('lobby');
-btnBattleRestart.onclick = () => {
-  if(currentOpponent) startBattle(currentOpponent);
-};
-
-let currentOpponent = null;
-
-let myShipsGrid = null;
-let myShotsGrid = null;
-let enemyShipsGrid = null;
-let enemyShotsGrid = null;
-
-let myTurn = true;
-
-function startBattle(opponent){
-  currentOpponent = opponent;
-  battleOppEl.textContent = opponent;
-
-  myShipsGrid = playerGrid.map(row => row.slice());
-  myShotsGrid = makeGrid();
-
-  enemyShipsGrid = generateEnemyShips();
-  enemyShotsGrid = makeGrid();
-
-  myTurn = true;
-  battleStatusL.textContent = 'защищайся';
-  battleStatusR.textContent = 'твой ход';
-
-  buildBattleBoards();
-  renderBattleBoards();
-
-  addSys(`Матч 1×1: ${YOU} vs ${opponent} (локальный макет)`);
-  showScreen('battle');
-}
-
-function buildBattleBoards(){
-  myBattleEl.innerHTML = '';
-  enemyBattleEl.innerHTML = '';
-
-  for(let r=0;r<SIZE;r++){
-    for(let c=0;c<SIZE;c++){
-      const a = document.createElement('div');
-      a.className = 'cell';
-      a.dataset.r = String(r);
-      a.dataset.c = String(c);
-      myBattleEl.appendChild(a);
-
-      const b = document.createElement('div');
-      b.className = 'cell';
-      b.dataset.r = String(r);
-      b.dataset.c = String(c);
-      b.addEventListener('click', () => onShootEnemy(r,c));
-      enemyBattleEl.appendChild(b);
-    }
-  }
-}
-
-function renderBattleBoards(){
-  myBattleEl.querySelectorAll('.cell').forEach(cell => {
-    const r = Number(cell.dataset.r);
-    const c = Number(cell.dataset.c);
-    cell.classList.toggle('ship', myShipsGrid[r][c] === 1);
-    cell.classList.toggle('hit', myShotsGrid[r][c] === 2);
-    cell.classList.toggle('miss', myShotsGrid[r][c] === 3);
-  });
-
-  enemyBattleEl.querySelectorAll('.cell').forEach(cell => {
-    const r = Number(cell.dataset.r);
-    const c = Number(cell.dataset.c);
-    cell.classList.toggle('hit', enemyShotsGrid[r][c] === 2);
-    cell.classList.toggle('miss', enemyShotsGrid[r][c] === 3);
-  });
-}
-
-function onShootEnemy(r,c){
-  if(!myTurn) return;
-  if(enemyShotsGrid[r][c] === 2 || enemyShotsGrid[r][c] === 3) return;
-
-  if(enemyShipsGrid[r][c] === 1){
-    enemyShotsGrid[r][c] = 2;
-  }else{
-    enemyShotsGrid[r][c] = 3;
-    myTurn = false;
-    battleStatusR.textContent = 'ход противника...';
-  }
-
-  renderBattleBoards();
-
-  if(isAllSunk(enemyShipsGrid, enemyShotsGrid)){
-    openModal('Победа!', `Ты выиграл у <b>${escapeHtml(currentOpponent)}</b> ✅`);
-    showScreen('lobby');
-    return;
-  }
-
-  if(!myTurn){
-    setTimeout(enemyMove, 550);
-  }
-}
-
-function enemyMove(){
-  const candidates = [];
-  for(let r=0;r<SIZE;r++){
-    for(let c=0;c<SIZE;c++){
-      if(myShotsGrid[r][c] === 0) candidates.push({r,c});
-    }
-  }
-  if(candidates.length === 0) return;
-
-  const pick = candidates[Math.floor(Math.random()*candidates.length)];
-  const {r,c} = pick;
-
-  if(myShipsGrid[r][c] === 1){
-    myShotsGrid[r][c] = 2;
-    battleStatusR.textContent = 'противник попал!';
-    renderBattleBoards();
-    if(isAllSunk(myShipsGrid, myShotsGrid)){
-      openModal('Поражение', `Ты проиграл игроку <b>${escapeHtml(currentOpponent)}</b> ❌`);
-      showScreen('lobby');
-      return;
-    }
-    setTimeout(enemyMove, 500);
-    return;
-  }else{
-    myShotsGrid[r][c] = 3;
-    renderBattleBoards();
-    myTurn = true;
-    battleStatusR.textContent = 'твой ход';
-  }
-}
-
-function isAllSunk(ships, shots){
-  for(let r=0;r<SIZE;r++){
-    for(let c=0;c<SIZE;c++){
-      if(ships[r][c] === 1 && shots[r][c] !== 2) return false;
-    }
-  }
-  return true;
-}
-
-function generateEnemyShips(){
-  const grid = makeGrid();
-  const lens = shipSet.slice();
-
-  function canPlace(r,c,len,ori){
-    const cells = [];
-    for(let i=0;i<len;i++){
-      const rr = r + (ori === 'v' ? i : 0);
-      const cc = c + (ori === 'h' ? i : 0);
-      if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) return null;
-      if(grid[rr][cc] === 1) return null;
-      cells.push({r:rr,c:cc});
-    }
-    for(const cell of cells){
-      for(let dr=-1; dr<=1; dr++){
-        for(let dc=-1; dc<=1; dc++){
-          const rr = cell.r+dr, cc = cell.c+dc;
-          if(rr<0||cc<0||rr>=SIZE||cc>=SIZE) continue;
-          const isPart = cells.some(x => x.r===rr && x.c===cc);
-          if(!isPart && grid[rr][cc] === 1) return null;
-        }
-      }
-    }
-    return cells;
-  }
-
-  for(const len of lens){
-    let placed = false;
-    for(let t=0;t<1200;t++){
-      const ori = Math.random()<0.5 ? 'h' : 'v';
-      const r = Math.floor(Math.random()*SIZE);
-      const c = Math.floor(Math.random()*SIZE);
-      const cells = canPlace(r,c,len,ori);
-      if(cells){
-        cells.forEach(({r,c}) => grid[r][c]=1);
-        placed = true;
-        break;
-      }
-    }
-    if(!placed) return generateEnemyShips();
-  }
-
-  return grid;
-}
-
-// ================= Utils =================
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[m]));
-}
-
-// ================= Init =================
-(function init(){
-  buildGrid11();
-  renderGrid11();
-  renderFleet();
-
-  const h = (location.hash || '#menu').replace('#','');
-  if(screens[h]) showScreen(h, false);
-  else showScreen('menu', false);
-})();
+/* стартовый экран */
+showScreen("home", false);
