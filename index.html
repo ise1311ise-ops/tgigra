@@ -2,191 +2,125 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SeaBattle — классика</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
-
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Морской бой</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Telegram WebApp (можно оставить, даже если запускаешь в браузере) -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-  <div class="app">
+  <div id="app" class="app">
 
-    <!-- TOP BAR (одинаковый для всех экранов) -->
-    <header class="topbar paper">
-      <div class="brand">
-        <div class="brand__title">SeaBattle</div>
-        <div class="brand__ver">Classic</div>
-      </div>
-
-      <div class="topbar__right">
-        <button class="icon-btn" id="btnHelp" title="Помощь">?</button>
-        <button class="icon-btn" id="btnHome" title="Домой">⌂</button>
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="brand">⚓ Морской бой</div>
+      <div class="topbar-actions">
+        <button id="btnBack" class="btn ghost hidden">Назад</button>
       </div>
     </header>
 
-    <!-- ЭКРАНЫ -->
-    <main class="screens">
-
-      <!-- MENU -->
-      <section class="screen screen--active" id="screenMenu" data-screen="menu">
-        <div class="paper screenCard">
-          <div class="menuArt">
-            <div class="menuArt__ship" aria-hidden="true"></div>
-            <div class="menuArt__lighthouse" aria-hidden="true"></div>
-          </div>
-
-          <div class="menuBtns">
-            <button class="btn btn--primary btnBig" id="btnGoPlacement" type="button">Старт</button>
-            <button class="btn btnBig" id="btnGoTop" type="button">Топ</button>
-            <button class="btn btnBig" id="btnMenuHelp" type="button">Правила</button>
-          </div>
-
-          <div class="note">
-            Только классическая игра: флот 1×4, 2×3, 3×2, 4×1.
-          </div>
-        </div>
-      </section>
-
-      <!-- TOP -->
-      <section class="screen" id="screenTop" data-screen="top">
-        <div class="paper screenCard">
-          <div class="screenHeader">
-            <h2 class="h2">Топ дня</h2>
-            <button class="btn" id="btnBackFromTop" type="button">Назад</button>
-          </div>
-
-          <div class="leaderboard" id="leaderboard">
-            <div class="lb-row">
-              <div class="lb-rank">1</div>
-              <div class="lb-name">User 1</div>
-              <div class="lb-x">x5</div>
-            </div>
-            <div class="lb-row">
-              <div class="lb-rank">2</div>
-              <div class="lb-name">User 2</div>
-              <div class="lb-x">x3</div>
-            </div>
-            <div class="lb-row">
-              <div class="lb-rank">3</div>
-              <div class="lb-name">User 3</div>
-              <div class="lb-x">x2</div>
-            </div>
-            <div class="lb-row">
-              <div class="lb-rank">4</div>
-              <div class="lb-name">User 4</div>
-              <div class="lb-x">x1</div>
-            </div>
-            <div class="lb-row">
-              <div class="lb-rank">5</div>
-              <div class="lb-name">User 5</div>
-              <div class="lb-x">x1</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- PLACEMENT -->
-      <section class="screen" id="screenPlacement" data-screen="placement">
-        <div class="paper screenCard">
-          <div class="screenHeader">
-            <h2 class="h2">Расстановка флота</h2>
-            <button class="btn" id="btnBackFromPlacement" type="button">Назад</button>
-          </div>
-
-          <div class="gameHead">
-            <div class="playerTag">
-              <div class="playerTag__label">Игрок</div>
-              <div class="playerTag__name" id="playerName">User</div>
-            </div>
-
-            <div class="status" id="statusPlacement">Нажми «Авто» или ставь вручную.</div>
-
-            <div class="controls">
-              <button class="btn" id="btnRotate" type="button">Повернуть</button>
-              <button class="btn" id="btnAuto" type="button">Авто</button>
-              <button class="btn btn--primary" id="btnStartBattle" type="button">Старт</button>
-            </div>
-          </div>
-
-          <div class="boards boards--single">
-            <div class="boardWrap">
-              <div class="boardTitle">ТВОЁ ПОЛЕ</div>
-              <div class="board" id="playerBoard"></div>
-            </div>
-          </div>
-
-          <div class="legend">
-            <span class="dot dot--ship"></span> корабль
-          </div>
-        </div>
-      </section>
-
-      <!-- BATTLE -->
-      <section class="screen" id="screenBattle" data-screen="battle">
-        <div class="paper screenCard">
-          <div class="screenHeader">
-            <h2 class="h2">Классическая игра</h2>
-            <button class="btn" id="btnBackFromBattle" type="button">Сдаться</button>
-          </div>
-
-          <div class="gameHead">
-            <div class="status" id="statusBattle">Стреляй по полю противника.</div>
-            <div class="controls">
-              <button class="btn" id="btnRestart" type="button">Заново</button>
-            </div>
-          </div>
-
-          <!-- ВАЖНО: всегда горизонтально -->
-          <div class="boards boards--h" id="battleBoards">
-            <div class="boardWrap">
-              <div class="boardTitle">ТВОЁ ПОЛЕ</div>
-              <div class="board" id="playerBoardBattle"></div>
-            </div>
-
-            <div class="boardWrap">
-              <div class="boardTitle">ПОЛЕ ПРОТИВНИКА</div>
-              <div class="board" id="enemyBoard"></div>
-            </div>
-          </div>
-
-          <div class="legend">
-            <span class="dot dot--ship"></span> корабль
-            <span class="dot dot--hit"></span> попадание
-            <span class="dot dot--miss"></span> мимо
-          </div>
-        </div>
-      </section>
-
-      <!-- RESULT -->
-      <section class="screen" id="screenResult" data-screen="result">
-        <div class="paper screenCard center">
-          <h2 class="h2" id="resultTitle">Результат</h2>
-          <div class="note" id="resultText">...</div>
-
-          <div class="menuBtns">
-            <button class="btn btn--primary btnBig" id="btnPlayAgain" type="button">Ещё раз</button>
-            <button class="btn btnBig" id="btnResultHome" type="button">В меню</button>
-          </div>
-        </div>
-      </section>
-
-    </main>
-
-    <!-- HELP MODAL -->
-    <dialog class="modal paper" id="helpModal">
-      <h3>Правила</h3>
-      <ul>
-        <li>Флот: 1×4, 2×3, 3×2, 4×1.</li>
-        <li>Корабли не касаются даже по диагонали.</li>
-        <li>При попадании ход продолжается.</li>
-      </ul>
-      <div class="modal__actions">
-        <button class="btn btn--primary" id="btnCloseHelp" type="button">Ок</button>
+    <!-- SCREEN: MENU -->
+    <section id="screenMenu" class="screen active">
+      <div class="menu">
+        <button class="menu-item" id="btnOnline">Онлайн игра</button>
+        <button class="menu-item" id="btnSettings">Настройки</button>
+        <button class="menu-item" id="btnSupport">Поддержка</button>
+        <button class="menu-item" id="btnShare">Поделиться игрой</button>
       </div>
-    </dialog>
+
+      <div class="hint">
+        Режим: горизонтальный. В Telegram игра будет выглядеть лучше в landscape.
+      </div>
+    </section>
+
+    <!-- SCREEN: SETUP / PLACEMENT -->
+    <section id="screenSetup" class="screen">
+      <div class="setup">
+        <div class="panel">
+          <div class="panel-title">Твоё поле</div>
+          <div id="myPlacementGrid" class="grid"></div>
+          <div class="panel-subhint">Клик по кораблю на поле — поворот</div>
+        </div>
+
+        <div class="panel right">
+          <div class="panel-title">Корабли</div>
+          <div id="shipTray" class="ship-tray"></div>
+
+          <div class="setup-actions">
+            <button id="btnAutoPlace" class="btn">Авторасстановка</button>
+            <button id="btnClear" class="btn ghost">Очистить</button>
+            <button id="btnNextToLobby" class="btn primary" disabled>Далее</button>
+          </div>
+
+          <div class="panel-subhint">
+            Перетащи корабль на поле. Нельзя пересекаться и касаться (по диагонали тоже).
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN: LOBBY -->
+    <section id="screenLobby" class="screen">
+      <div class="lobby">
+        <div class="panel">
+          <div class="panel-title">Игроки онлайн</div>
+          <div id="playersList" class="players"></div>
+        </div>
+
+        <div class="panel right">
+          <div class="panel-title lobby-head">
+            <span>Комната</span>
+            <div class="lobby-actions">
+              <button id="btnToggleChat" class="btn">Чат</button>
+              <button id="btnLeaveLobby" class="btn ghost">Выйти</button>
+            </div>
+          </div>
+
+          <div id="chatWrap" class="chat hidden">
+            <div id="chatMessages" class="chat-messages"></div>
+            <div class="chat-input">
+              <input id="chatText" type="text" placeholder="Сообщение..." />
+              <button id="chatSend" class="btn primary">Отправить</button>
+            </div>
+          </div>
+
+          <div id="lobbyInfo" class="lobby-info">
+            Выбери игрока слева, чтобы отправить приглашение на 1v1.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN: BATTLE -->
+    <section id="screenBattle" class="screen">
+      <div class="battle">
+        <div class="panel">
+          <div class="panel-title">Твоё поле</div>
+          <div id="myBattleGrid" class="grid"></div>
+          <div id="battleStatusLeft" class="panel-subhint"></div>
+        </div>
+
+        <div class="panel right">
+          <div class="panel-title">Поле противника</div>
+          <div id="enemyBattleGrid" class="grid"></div>
+          <div id="battleStatusRight" class="panel-subhint">Кликай по клеткам — выстрел (пока заглушка)</div>
+
+          <div class="battle-actions">
+            <button id="btnExitBattle" class="btn ghost">Выйти в меню</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SIMPLE MODAL -->
+    <div id="modal" class="modal hidden">
+      <div class="modal-card">
+        <div id="modalText" class="modal-text"></div>
+        <div class="modal-actions">
+          <button id="modalOk" class="btn primary">Ок</button>
+        </div>
+      </div>
+    </div>
 
   </div>
 
