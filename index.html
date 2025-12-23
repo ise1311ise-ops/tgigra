@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
   <title>Ферма</title>
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -22,26 +20,54 @@
           <div class="label">Монеты</div>
           <div class="value" id="coins">0</div>
         </div>
+
+        <div class="stat">
+          <div class="label">Энергия</div>
+          <div class="value"><span id="energy">0</span>/<span id="energyMax">0</span></div>
+        </div>
+
         <button class="btn small danger" id="resetBtn" title="Сбросить прогресс">↻</button>
       </div>
     </header>
 
     <section class="panel">
-      <div class="row">
+      <div class="row" style="gap:10px; align-items:center;">
+        <div class="chips" id="tabs">
+          <div class="chip active" data-tab="farm">🌱 Ферма</div>
+          <div class="chip" data-tab="shop">🧰 Магазин</div>
+          <div class="chip" data-tab="quests">✅ Квесты</div>
+        </div>
+
+        <button class="btn small" id="dailyBtn" title="Ежедневный бонус">🎁</button>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
         <div class="chips" id="cropChips"></div>
       </div>
+
       <div class="hint" id="hint">
         Нажми на клетку: пустая — посадить, созрела — собрать.
       </div>
     </section>
 
-    <main class="fieldWrap">
+    <!-- FARM -->
+    <main class="fieldWrap" id="screenFarm">
       <div class="field" id="field" aria-label="Игровое поле"></div>
+    </main>
+
+    <!-- SHOP -->
+    <main class="fieldWrap" id="screenShop" style="display:none;">
+      <div class="field" style="grid-template-columns: 1fr; gap:12px;" id="shopList" aria-label="Магазин"></div>
+    </main>
+
+    <!-- QUESTS -->
+    <main class="fieldWrap" id="screenQuests" style="display:none;">
+      <div class="field" style="grid-template-columns: 1fr; gap:12px;" id="questList" aria-label="Квесты"></div>
     </main>
 
     <footer class="bottom">
       <div class="bottomLeft">
-        <div class="mini">Выбрано:</div>
+        <div class="mini" id="bottomMini">Выбрано:</div>
         <div class="selected" id="selectedCrop">—</div>
       </div>
 
