@@ -2,65 +2,73 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>для Юленьки 💗</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Слова — Telegram Game</title>
   <link rel="stylesheet" href="style.css" />
-</head>
 
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
 <body>
-  <div class="bg" aria-hidden="true"></div>
+  <header class="topbar">
+    <div class="title">
+      <div class="h1">СОБЕРИ СЛОВА</div>
+      <div class="h2" id="levelLine">Уровень 1</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="k">Очки</div>
+        <div class="v" id="score">0</div>
+      </div>
+      <div class="stat">
+        <div class="k">Найдено</div>
+        <div class="v"><span id="foundCount">0</span>/<span id="goalCount">0</span></div>
+      </div>
+      <button class="btn ghost" id="btnRestart" title="Начать уровень заново">↻</button>
+    </div>
+  </header>
 
   <main class="wrap">
-    <header class="hero">
-      <div class="chip">сайт знакомств</div>
-      <h1 class="title">для <span class="glow">Юленьки</span> 💗</h1>
-      <p class="sub">
-        Одна анкета. Один особенный человек. И маленькая игра, чтобы поймать улыбку.
-      </p>
-    </header>
+    <section class="boardWrap">
+      <div id="board" class="board" aria-label="Поле букв"></div>
 
-    <section class="card">
-      <h2 class="cardTitle">Анкета</h2>
-      <div class="grid">
-        <div class="pill">Имя: <b>Юленька</b></div>
-        <div class="pill">Статус: <b>самая любимая</b></div>
-        <div class="pill">Интересы: <b>тепло, уют, магия</b></div>
-        <div class="pill">Совпадение: <b>∞%</b></div>
+      <div class="compose">
+        <div class="current" id="currentWord">—</div>
+        <div class="composeBtns">
+          <button class="btn" id="btnSubmit">Зачесть</button>
+          <button class="btn ghost" id="btnClear">Сброс</button>
+        </div>
+        <div class="hint" id="hintLine"></div>
       </div>
-
-      <div class="row">
-        <button class="btn primary" id="start">Старт игры 🎮</button>
-        <button class="btn" id="compliment">Комплимент ✨</button>
-        <button class="btn" id="reset">Сброс</button>
-      </div>
-
-      <p class="hint" id="hint">Нажми «Старт игры» — и ловим сердечки 💞</p>
     </section>
 
-    <section class="card">
-      <div class="score">
-        <div class="stat">
-          <div class="label">Время</div>
-          <div class="value"><span id="time">30</span>с</div>
+    <section class="side">
+      <div class="panel">
+        <div class="panelHead">
+          <div class="panelTitle">Слова</div>
+          <div class="pill" id="difficultyPill">4×4</div>
         </div>
-        <div class="stat">
-          <div class="label">Счёт</div>
-          <div class="value" id="score">0</div>
-        </div>
-        <div class="stat">
-          <div class="label">Рекорд</div>
-          <div class="value" id="best">0</div>
-        </div>
+        <div class="words" id="wordsList"></div>
       </div>
 
-      <div class="arena" id="arena" aria-label="Игровое поле"></div>
-      <p class="footnote">Подсказка: сердечки иногда убегают 😉</p>
+      <div class="panel">
+        <div class="panelHead">
+          <div class="panelTitle">Правила</div>
+        </div>
+        <div class="rules">
+          <ul>
+            <li>Собирай слово по <b>соседним</b> буквам (включая диагонали).</li>
+            <li>Нельзя использовать одну клетку два раза в одном слове.</li>
+            <li>Минимум <b>3 буквы</b>.</li>
+            <li>Проходишь уровень, когда найдёшь нужное количество слов.</li>
+          </ul>
+        </div>
+      </div>
     </section>
-
-    <footer class="footer">
-      Сделано с 💗 для Юленьки
-    </footer>
   </main>
+
+  <div class="toast" id="toast"></div>
 
   <script src="game.js"></script>
 </body>
