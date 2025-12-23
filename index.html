@@ -1,215 +1,51 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Дирижабль: Экспедиция</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Ферма</title>
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
   <div class="app">
-    <header class="topbar">
-      <div class="brand">
-        <div class="logo">🛩️</div>
-        <div>
-          <div class="title">Дирижабль: Экспедиция</div>
-          <div class="subtitle" id="dayHint">День: —</div>
-        </div>
+    <header class="top">
+      <div class="title">
+        <div class="h1">🌾 Ферма</div>
+        <div class="sub" id="userLine">Игрок</div>
       </div>
 
       <div class="stats">
         <div class="stat">
-          <div class="label">Эфир</div>
-          <div class="value"><span id="aether">0</span></div>
+          <div class="label">Монеты</div>
+          <div class="value" id="coins">0</div>
         </div>
-        <div class="stat">
-          <div class="label">Топливо</div>
-          <div class="value"><span id="fuel">0</span>/<span id="fuelMax">0</span></div>
-        </div>
-        <div class="stat">
-          <div class="label">Металл</div>
-          <div class="value"><span id="scrap">0</span></div>
-        </div>
-        <div class="stat">
-          <div class="label">Корпус</div>
-          <div class="value"><span id="hull">0</span>/<span id="hullMax">0</span></div>
-        </div>
-
-        <button class="btn ghost" id="btnSave" title="Сохранить">💾</button>
-        <button class="btn ghost" id="btnReset" title="Сбросить прогресс">↺</button>
+        <button class="btn small" id="resetBtn" title="Сбросить прогресс">↻</button>
       </div>
     </header>
 
-    <main class="main">
-      <section class="panel">
-        <h2>Палуба управления</h2>
+    <section class="panel">
+      <div class="row">
+        <div class="chips" id="cropChips"></div>
+      </div>
+      <div class="hint" id="hint">
+        Нажми на клетку: пустая — посадить, созрела — собрать.
+      </div>
+    </section>
 
-        <div class="tapZone">
-          <button class="btn big" id="btnPump">⚙️ Качать давление (тап)</button>
-          <div class="tapInfo">
-            Тапы дают <b>эфир</b> (тяга) и иногда <b>металл</b>. Эфир тратим на ускорение в полёте и ремонт.
-          </div>
-        </div>
-
-        <div class="kvGrid">
-          <div class="kv">
-            <div class="label">Давление</div>
-            <div class="value"><span id="pressure">0</span>/<span id="pressureMax">0</span></div>
-          </div>
-          <div class="kv">
-            <div class="label">Скорость</div>
-            <div class="value" id="speedHint">—</div>
-          </div>
-          <div class="kv">
-            <div class="label">Шторм дня</div>
-            <div class="value" id="stormHint">—</div>
-          </div>
-          <div class="kv">
-            <div class="label">Экипаж</div>
-            <div class="value" id="crewHint">—</div>
-          </div>
-        </div>
-
-        <div class="actionsGrid">
-          <button class="btn" id="btnOpenMap">🗺️ Карта</button>
-          <button class="btn" id="btnOpenHangar">🛠️ Ангар</button>
-          <button class="btn" id="btnOpenCrew">👥 Экипаж</button>
-          <button class="btn" id="btnOpenLog">📜 Лог</button>
-        </div>
-
-        <div class="mission">
-          <div class="missionHead">
-            <div>
-              <div class="missionTitle">Текущий рейс</div>
-              <div class="missionText" id="missionText">—</div>
-            </div>
-            <div class="missionRight">
-              <div class="label">До прибытия</div>
-              <div class="value" id="eta">—</div>
-            </div>
-          </div>
-
-          <div class="missionProgress">
-            <div class="bar"><div class="fill" id="missionFill"></div></div>
-            <div class="small" id="missionMeta">—</div>
-          </div>
-
-          <div class="missionBtns">
-            <button class="btn" id="btnBoost" disabled>🚀 Ускорить (эфир)</button>
-            <button class="btn ghost" id="btnRepair">🧰 Ремонт</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel grow">
-        <h2>Карта: маршрут</h2>
-        <div class="route">
-          <div class="routeHead">
-            <div class="routeTitle" id="routeTitle">Зона: —</div>
-            <div class="routeSub muted small" id="routeSub">Выбери узел на карте, чтобы отправиться.</div>
-          </div>
-
-          <div class="map" id="map"></div>
-
-          <div class="hint">
-            Узлы дают награды, но иногда бьют по корпусу. На шторме дня риск выше — зато добыча жирнее.
-          </div>
-        </div>
-      </section>
+    <main class="fieldWrap">
+      <div class="field" id="field"></div>
     </main>
 
-    <!-- Map Modal -->
-    <div class="modal" id="modalMap" aria-hidden="true">
-      <div class="modalCard">
-        <div class="modalHead">
-          <h3>Карта</h3>
-          <button class="btn ghost" data-close="modalMap">✕</button>
-        </div>
-
-        <div class="twoCols">
-          <div>
-            <h4>Выбор узла</h4>
-            <div class="list" id="mapList"></div>
-            <div class="small muted">Клик по узлу — поставить маршрут.</div>
-          </div>
-          <div>
-            <h4>Инфо о зоне</h4>
-            <div class="infoBox" id="zoneInfo">—</div>
-            <div class="small muted">Чем дальше зона — тем выше риск и награда.</div>
-          </div>
-        </div>
-
-        <div class="modalFoot">
-          <div class="small muted" id="mapHint">—</div>
-          <button class="btn" data-close="modalMap">Готово</button>
-        </div>
+    <footer class="bottom">
+      <div class="bottomLeft">
+        <div class="mini">Выбрано:</div>
+        <div class="selected" id="selectedCrop">—</div>
       </div>
-    </div>
 
-    <!-- Hangar Modal -->
-    <div class="modal" id="modalHangar" aria-hidden="true">
-      <div class="modalCard">
-        <div class="modalHead">
-          <h3>Ангар: улучшения</h3>
-          <button class="btn ghost" data-close="modalHangar">✕</button>
-        </div>
-
-        <div class="list" id="upgradeList"></div>
-
-        <div class="modalFoot">
-          <div class="small muted" id="hangarHint">—</div>
-          <button class="btn" data-close="modalHangar">Закрыть</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Crew Modal -->
-    <div class="modal" id="modalCrew" aria-hidden="true">
-      <div class="modalCard">
-        <div class="modalHead">
-          <h3>Экипаж</h3>
-          <button class="btn ghost" data-close="modalCrew">✕</button>
-        </div>
-
-        <div class="twoCols">
-          <div>
-            <h4>Доступные специалисты</h4>
-            <div class="list" id="crewList"></div>
-            <div class="small muted">У тебя можно держать ограничение по местам.</div>
-          </div>
-          <div>
-            <h4>Активные места</h4>
-            <div class="list" id="activeCrewList"></div>
-            <div class="small muted">Клик по активному — снять.</div>
-          </div>
-        </div>
-
-        <div class="modalFoot">
-          <div class="small muted" id="crewHintModal">—</div>
-          <button class="btn" data-close="modalCrew">Готово</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Log Modal -->
-    <div class="modal" id="modalLog" aria-hidden="true">
-      <div class="modalCard">
-        <div class="modalHead">
-          <h3>Лог событий</h3>
-          <button class="btn ghost" data-close="modalLog">✕</button>
-        </div>
-        <div class="log" id="log"></div>
-        <div class="modalFoot">
-          <button class="btn ghost" id="btnClearLog">Очистить</button>
-          <button class="btn" data-close="modalLog">Закрыть</button>
-        </div>
-      </div>
-    </div>
-
-    <footer class="footer">
-      <div class="small muted">
-        Подсказка: качай давление → лети в узлы → трать металл на апгрейды → найми экипаж.
-      </div>
+      <button class="btn" id="mainActionBtn">Посадить</button>
     </footer>
   </div>
 
