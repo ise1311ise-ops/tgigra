@@ -20,7 +20,6 @@ function loadState() {
     if (!raw) return { ...defaultState };
     const s = JSON.parse(raw);
 
-    // защита от мусора
     return {
       zikr: typeof s.zikr === "string" ? s.zikr : defaultState.zikr,
       target: Number.isFinite(Number(s.target)) ? Number(s.target) : defaultState.target,
@@ -59,7 +58,6 @@ function render() {
   progressTextEl.textContent = `${state.count} / ${state.target}`;
   countTextEl.textContent = String(state.count);
 
-  // подсветка чипов по цели
   chips.forEach(c => {
     const t = Number(c.dataset.target);
     c.classList.toggle("active", t === state.target);
@@ -75,12 +73,8 @@ function haptic(type = "light") {
 function inc() {
   state.count += 1;
 
-  // если дошли до цели — можно “мягко” дать сигнал
-  if (state.count === state.target) {
-    haptic("heavy");
-  } else {
-    haptic("light");
-  }
+  if (state.count === state.target) haptic("heavy");
+  else haptic("light");
 
   saveState();
   render();
@@ -93,28 +87,36 @@ function reset() {
   render();
 }
 
-// --- Modal ---
+// --- Bottom sheet modal open/close with animation ---
 function openModal() {
   zikrSelect.value = state.zikr;
   customTarget.value = "";
+
   modalBackdrop.hidden = false;
+  requestAnimationFrame(() => modalBackdrop.classList.add("show"));
 }
 
 function closeModal() {
-  modalBackdrop.hidden = true;
+  modalBackdrop.classList.remove("show");
+  setTimeout(() => {
+    modalBackdrop.hidden = true;
+  }, 230);
 }
 
+// --- Chips (33/99/100) ---
 chips.forEach(chip => {
   chip.addEventListener("click", () => {
     const t = Number(chip.dataset.target);
     if (Number.isFinite(t)) {
       state.target = t;
+      customTarget.value = "";
       chips.forEach(c => c.classList.remove("active"));
       chip.classList.add("active");
     }
   });
 });
 
+// --- Save (автозакрытие после выбора) ---
 btnSave.addEventListener("click", () => {
   const z = zikrSelect.value;
   const custom = customTarget.value.trim();
@@ -128,14 +130,14 @@ btnSave.addEventListener("click", () => {
     }
   }
 
-  // Если счётчик больше цели — не режем, оставляем как есть,
-  // но прогресс покажет count/target. Если хочешь — можно обнулить.
   saveState();
   render();
-  closeModal();
+  closeModal(); // <-- закрываем после выбора
 });
 
 btnClose.addEventListener("click", closeModal);
+
+// Закрытие по тапу на затемнение
 modalBackdrop.addEventListener("click", (e) => {
   if (e.target === modalBackdrop) closeModal();
 });
