@@ -34,6 +34,7 @@
       <div class="row" style="gap:10px; align-items:center;">
         <div class="chips" id="tabs">
           <div class="chip active" data-tab="farm">🌱 Ферма</div>
+          <div class="chip" data-tab="yard">🏡 Двор</div>
           <div class="chip" data-tab="shop">🧰 Магазин</div>
           <div class="chip" data-tab="quests">✅ Квесты</div>
         </div>
@@ -53,6 +54,13 @@
     <!-- FARM -->
     <main class="fieldWrap" id="screenFarm">
       <div class="field" id="field" aria-label="Игровое поле"></div>
+    </main>
+
+    <!-- YARD -->
+    <main class="fieldWrap" id="screenYard" style="display:none;">
+      <div class="field" style="grid-template-columns: 1fr; gap:12px;" id="yardTop" aria-label="Двор"></div>
+      <div style="height:12px;"></div>
+      <div class="field" style="grid-template-columns: 1fr; gap:12px;" id="yardList" aria-label="Постройки"></div>
     </main>
 
     <!-- SHOP -->
