@@ -3,18 +3,14 @@
   --text: #eaf2ff;
   --muted: rgba(234,242,255,.65);
   --glass: rgba(10,14,22,.55);
-  --glass2: rgba(10,14,22,.35);
   --stroke: rgba(255,255,255,.12);
-  --accent: rgba(120,200,255,.95);
   --danger: #ff6a6a;
 }
 
 *{ box-sizing: border-box; }
 html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; color: var(--text); }
 
-body{
-  background: var(--bg);
-}
+body{ background: var(--bg); }
 
 .app{
   min-height: 100%;
@@ -140,24 +136,44 @@ body{
   backdrop-filter: blur(10px);
 }
 
-/* ---- Modal ---- */
+/* ---------------- Bottom sheet modal (как на скрине) ---------------- */
 .modal-backdrop{
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.55);
   display:flex;
-  align-items:flex-end;
+  align-items: flex-end;
   justify-content:center;
-  padding: 18px;
+  padding: 12px;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+}
+
+.modal-backdrop.show{
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .modal{
   width: min(520px, 96vw);
+  max-height: 70vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+
   border-radius: 22px;
-  border: 1px solid var(--stroke);
-  background: rgba(8,10,16,.9);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(8,10,16,.92);
   backdrop-filter: blur(14px);
   padding: 16px;
+
+  transform: translateY(110%);
+  transition: transform .22s ease;
+}
+
+.modal-backdrop.show .modal{
+  transform: translateY(0);
 }
 
 .modal-title{
