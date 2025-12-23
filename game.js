@@ -1,5 +1,5 @@
 /* Ферма для Telegram WebApp: посадка → рост → сбор → монеты.
-   Сохранение: localStorage (опционально можно переключить на Telegram CloudStorage). */
+   Сохранение: localStorage (при желании можно переключить на Telegram CloudStorage). */
 
 const APP_KEY = "tg-farm-save-v1";
 const GRID = 5; // 5x5
@@ -40,12 +40,6 @@ function initTelegram(){
   tg.ready();
   tg.expand();
 
-  // Приятная тема (под Telegram)
-  // (Если вдруг нет — просто игнор)
-  try {
-    if (tg.themeParams?.bg_color) document.body.style.background = tg.themeParams.bg_color;
-  } catch {}
-
   const user = tg.initDataUnsafe?.user;
   if (user) {
     const name = [user.first_name, user.last_name].filter(Boolean).join(" ");
@@ -54,7 +48,7 @@ function initTelegram(){
     $("#userLine").textContent = "Игрок: Telegram";
   }
 
-  // Тактильный отклик (если доступно)
+  // тактильный отклик (если доступно)
   window.__tg = tg;
 }
 
@@ -95,7 +89,6 @@ function load(){
       }));
     }
   }catch{
-    // если сохранение битое — стартуем заново
     makeDefaultPlots();
   }
 
@@ -113,14 +106,12 @@ function save(){
 }
 
 function normalizeGrowth(){
-  // пересчитываем ready по времени
   const t = nowMs();
   for (const p of state.plots){
     if (p.status === "growing" && typeof p.readyAt === "number" && t >= p.readyAt){
       p.status = "ready";
     }
     if (p.status === "ready" && (!p.cropId || !p.readyAt)){
-      // защита от битых данных
       p.status = "empty";
       p.cropId = null;
       p.plantedAt = null;
@@ -156,10 +147,8 @@ function renderTop(){
   const crop = getCrop(state.selectedCropId);
   $("#selectedCrop").textContent = crop ? `${crop.emoji} ${crop.name}` : "—";
 
-  // Главная кнопка снизу — под контекст
   $("#mainActionBtn").textContent = `Посадить (${crop?.cost ?? "?"}💰)`;
   $("#mainActionBtn").disabled = !crop || state.coins < crop.cost;
-  $("#mainActionBtn").style.opacity = $("#mainActionBtn").disabled ? "0.6" : "1";
 }
 
 function renderField(){
@@ -186,7 +175,17 @@ function renderField(){
       }
     }
 
+    // прогресс-бар для growing
+    let barHtml = "";
+    if (p.status === "growing" && p.plantedAt && p.readyAt) {
+      const total = p.readyAt - p.plantedAt;
+      const done = nowMs() - p.plantedAt;
+      const pct = Math.max(0, Math.min(100, Math.floor((done / total) * 100)));
+      barHtml = `<div class="bar"><i style="width:${pct}%"></i></div>`;
+    }
+
     el.innerHTML = `
+      ${barHtml}
       <div class="emoji">${emoji}</div>
       <div class="timer">${timerText}</div>
     `;
@@ -246,6 +245,16 @@ function harvest(idx){
   const gain = crop?.sell ?? 0;
   state.coins += gain;
 
+  // визуальный эффект +монеты
+  const plotEl = document.querySelectorAll(".plot")[idx];
+  if (plotEl) {
+    const fx = document.createElement("div");
+    fx.className = "popFx";
+    fx.textContent = `+${gain}💰`;
+    plotEl.appendChild(fx);
+    setTimeout(() => fx.remove(), 650);
+  }
+
   p.status = "empty";
   p.cropId = null;
   p.plantedAt = null;
@@ -269,7 +278,6 @@ function onPlotClick(idx){
 }
 
 function onMainAction(){
-  // “Посадить” — посадим в первую свободную клетку
   normalizeGrowth();
   const emptyIdx = state.plots.findIndex(p => p.status === "empty");
   if (emptyIdx === -1){
@@ -281,14 +289,14 @@ function onMainAction(){
 }
 
 function tick(){
-  // обновляем таймеры и перевод growing->ready
+  // обновляем таймеры и прогресс-бар
   const before = state.plots.map(p => p.status).join(",");
   normalizeGrowth();
   const after = state.plots.map(p => p.status).join(",");
   if (before !== after){
     save();
   }
-  renderField(); // чтобы не перерисовывать всё — только поле
+  renderField();
 }
 
 // ---------- Сброс ----------
@@ -311,10 +319,8 @@ function boot(){
   $("#mainActionBtn").addEventListener("click", onMainAction);
   $("#resetBtn").addEventListener("click", resetGame);
 
-  // периодическое обновление таймеров
   setInterval(tick, 400);
 
-  // автосейв при сворачивании
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") save();
   });
