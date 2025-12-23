@@ -1,16 +1,16 @@
-/* FARM GAME v2 (Telegram WebApp)
+/* FARM GAME v3 (Telegram WebApp)
    - рост по стадиям
-   - энергия
+   - энергия + реген
    - ежедневный бонус
    - магазин улучшений
    - квесты
+   - Двор с постройками (улучшения прямо на дворе)
    - CloudStorage (если доступно) + localStorage fallback
 */
 
-const SAVE_KEY = "farm_save_v2";
+const SAVE_KEY = "farm_save_v3";
 const GRID = 5; // 5x5
 
-// Стадии роста: seed -> sprout -> grown(ready)
 const CROPS = [
   { id:"wheat",  name:"Пшеница", emoji:["🌱","🌿","🌾"], cost:2,  growSec:22, sell:5,  xp:2 },
   { id:"carrot", name:"Морковь", emoji:["🌱","🌿","🥕"], cost:4,  growSec:46, sell:10, xp:4 },
@@ -18,26 +18,32 @@ const CROPS = [
 ];
 
 const UPGRADES = [
+  { id:"watering", name:"Полив", desc:"Растёт быстрее (−10% время роста за уровень)", basePrice:50, max:5 },
+  { id:"barn", name:"Сарай", desc:"Больше прибыль (+10% цена продажи за уровень)", basePrice:60, max:5 },
+  { id:"stamina", name:"Выносливость", desc:"Больше энергии (+5 к максимуму за уровень)", basePrice:40, max:6 },
+];
+
+const BUILDINGS = [
   {
-    id: "watering",
-    name: "Полив",
-    desc: "Растёт быстрее (−10% время роста за уровень)",
-    basePrice: 50,
-    max: 5
+    id: "well",
+    emoji: "🪣",
+    name: "Колодец",
+    desc: "Даёт воду для полива. Ускоряет рост культур.",
+    upgradeId: "watering",
   },
   {
-    id: "barn",
+    id: "barn_building",
+    emoji: "🏚️",
     name: "Сарай",
-    desc: "Больше прибыль (+10% цена продажи за уровень)",
-    basePrice: 60,
-    max: 5
+    desc: "Хранение и торговля. Увеличивает цену продажи урожая.",
+    upgradeId: "barn",
   },
   {
-    id: "stamina",
-    name: "Выносливость",
-    desc: "Больше энергии (+5 к максимуму за уровень)",
-    basePrice: 40,
-    max: 6
+    id: "house",
+    emoji: "🏠",
+    name: "Дом",
+    desc: "Отдых фермера. Увеличивает максимум энергии.",
+    upgradeId: "stamina",
   },
 ];
 
@@ -63,6 +69,7 @@ function dayKey(t = new Date()){
 }
 
 function getCrop(id){ return CROPS.find(c => c.id === id); }
+function getUpgrade(id){ return UPGRADES.find(u => u.id === id); }
 
 // ---------- Telegram ----------
 function initTelegram(){
@@ -115,16 +122,12 @@ function cloudSet(key, value){
 }
 
 async function storageLoad(){
-  // 1) CloudStorage
   const cloud = await cloudGet(SAVE_KEY);
   if (cloud) return cloud;
-
-  // 2) localStorage
   return localStorage.getItem(SAVE_KEY);
 }
 
 async function storageSave(raw){
-  // try cloud first
   const ok = await cloudSet(SAVE_KEY, raw);
   if (!ok) localStorage.setItem(SAVE_KEY, raw);
 }
@@ -182,12 +185,10 @@ function applyStaminaUpgrade(){
 
 function upgradePrice(u){
   const lvl = state.upgrades[u.id] || 0;
-  // лёгкая прогрессия цены
   return Math.floor(u.basePrice * (1 + lvl * 0.65));
 }
 
 function xpForNextLevel(level){
-  // мягкая прогрессия
   return Math.floor(25 + (level-1) * 18);
 }
 
@@ -198,10 +199,12 @@ function addXp(x){
     if (state.stats.xp < need) break;
     state.stats.xp -= need;
     state.stats.level += 1;
-    // небольшой бонус за уровень
-    state.coins += 10 + state.stats.level * 2;
+
+    const bonus = 10 + state.stats.level * 2;
+    state.coins += bonus;
+
     haptic("notification","success");
-    toast(`Уровень повышен! 🎉 Теперь ${state.stats.level} (бонус монет получен)`);
+    toast(`Уровень повышен! 🎉 Теперь ${state.stats.level} (бонус +${bonus}💰)`);
   }
 }
 
@@ -210,7 +213,6 @@ function normalizeGrowth(){
   const t = nowMs();
   for (const p of state.plots){
     if (p.status === "growing"){
-      // перескок стадий, если долго был офлайн
       while (p.nextStageAt && t >= p.nextStageAt && p.stage < 2){
         p.stage += 1;
         if (p.stage >= 2){
@@ -219,10 +221,8 @@ function normalizeGrowth(){
           p.readyAt = t;
           break;
         } else {
-          // следующая стадия
           const crop = getCrop(p.cropId);
           const total = (crop?.growSec ?? 30) * 1000 * growthMultiplier();
-          // 2 перехода: 0->1, 1->2
           p.nextStageAt = p.plantedAt + Math.floor(total * ((p.stage+1)/2));
         }
       }
@@ -232,7 +232,6 @@ function normalizeGrowth(){
       }
     }
 
-    // защита от битых данных
     if (p.status === "ready" && (!p.cropId)){
       p.status = "empty";
       p.cropId = null;
@@ -277,8 +276,7 @@ function serialize(){
 }
 
 async function save(){
-  const raw = serialize();
-  await storageSave(raw);
+  await storageSave(serialize());
 }
 
 async function load(){
@@ -349,6 +347,7 @@ function toast(text){
 function setTab(tab){
   $$("#tabs .chip").forEach(c => c.classList.toggle("active", c.dataset.tab === tab));
   $("#screenFarm").style.display = (tab === "farm") ? "" : "none";
+  $("#screenYard").style.display = (tab === "yard") ? "" : "none";
   $("#screenShop").style.display = (tab === "shop") ? "" : "none";
   $("#screenQuests").style.display = (tab === "quests") ? "" : "none";
 
@@ -356,17 +355,27 @@ function setTab(tab){
     $("#bottomMini").textContent = "Выбрано:";
     renderFarmBottom();
   }
+  if (tab === "yard"){
+    $("#bottomMini").textContent = "Твой двор:";
+    $("#selectedCrop").textContent = `Уровень: ${state.stats.level}`;
+    $("#mainActionBtn").textContent = "На ферму";
+    $("#mainActionBtn").disabled = false;
+    $("#mainActionBtn").onclick = () => setTab("farm");
+    renderYard();
+  }
   if (tab === "shop"){
     $("#bottomMini").textContent = "Улучшай ферму:";
     $("#selectedCrop").textContent = `Уровень: ${state.stats.level}`;
-    $("#mainActionBtn").textContent = "Назад на ферму";
+    $("#mainActionBtn").textContent = "На ферму";
+    $("#mainActionBtn").disabled = false;
     $("#mainActionBtn").onclick = () => setTab("farm");
     renderShop();
   }
   if (tab === "quests"){
     $("#bottomMini").textContent = "Прогресс:";
     $("#selectedCrop").textContent = `Посажено: ${state.stats.planted} • Собрано: ${state.stats.harvested}`;
-    $("#mainActionBtn").textContent = "Назад на ферму";
+    $("#mainActionBtn").textContent = "На ферму";
+    $("#mainActionBtn").disabled = false;
     $("#mainActionBtn").onclick = () => setTab("farm");
     renderQuests();
   }
@@ -377,7 +386,6 @@ function renderTop(){
   $("#energy").textContent = String(state.energy);
   $("#energyMax").textContent = String(state.energyMax);
 
-  // daily button state
   const today = dayKey(new Date());
   const canClaim = state.daily.lastClaimDay !== today;
   $("#dailyBtn").style.opacity = canClaim ? "1" : "0.55";
@@ -412,7 +420,6 @@ function renderFarmBottom(){
   $("#selectedCrop").textContent = crop ? `${crop.emoji[2]} ${crop.name}` : "—";
   $("#mainActionBtn").textContent = `Посадить (${crop?.cost ?? "?"}💰 / ⚡1)`;
   $("#mainActionBtn").disabled = !crop || state.coins < crop.cost || state.energy < 1;
-
   $("#mainActionBtn").onclick = () => onMainAction();
 }
 
@@ -429,11 +436,9 @@ function plotTimerText(p){
   if (!crop) return "…";
 
   if (p.status === "ready") return "Готово! Нажми собрать";
-  // growing
   if (p.nextStageAt){
-    return `До следующей стадии: ${fmtTimeLeft(p.nextStageAt - nowMs())}`;
+    return `До стадии: ${fmtTimeLeft(p.nextStageAt - nowMs())}`;
   }
-  // fallback
   return "Растёт…";
 }
 
@@ -474,16 +479,141 @@ function renderField(){
   });
 }
 
+// ---------- Yard (buildings) ----------
+function yardBonusText(){
+  const speed = Math.round(100 * growthMultiplier());
+  const sell = Math.round(100 * sellMultiplier());
+  return `Скорость роста: ${speed}% • Продажа: ${sell}% • Энергия: ${state.energyMax}`;
+}
+
+async function buyUpgradeFromYard(upgradeId){
+  const u = getUpgrade(upgradeId);
+  if (!u) return;
+
+  const lvl = state.upgrades[u.id] || 0;
+  if (lvl >= u.max){
+    haptic("impact","light");
+    toast("Улучшение уже MAX ✅");
+    return;
+  }
+
+  const price = upgradePrice(u);
+  if (state.coins < price){
+    haptic("notification","error");
+    toast("Не хватает монет 😿");
+    return;
+  }
+
+  state.coins -= price;
+  state.upgrades[u.id] = lvl + 1;
+
+  if (u.id === "stamina") applyStaminaUpgrade();
+
+  haptic("impact","medium");
+  toast(`Постройка улучшена: ${u.name} (ур. ${state.upgrades[u.id]}/${u.max})`);
+
+  await save();
+  renderTop();
+  renderYard();
+  // влияет на ферму
+  normalizeGrowth();
+  renderChips();
+  renderField();
+  renderFarmBottom();
+}
+
+function renderYard(){
+  // Верхняя карточка с общим статусом
+  const top = $("#yardTop");
+  top.innerHTML = "";
+
+  const readyCount = state.plots.filter(p => p.status === "ready").length;
+
+  const topCard = document.createElement("div");
+  topCard.className = "plot ready";
+  topCard.style.aspectRatio = "auto";
+  topCard.style.padding = "14px";
+  topCard.style.cursor = "default";
+  topCard.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <div style="font-weight:900; font-size:14px;">🏡 Двор фермера (ур. ${state.stats.level})</div>
+        <div style="opacity:.88; font-size:12px; line-height:1.25;">${yardBonusText()}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:900;">${readyCount} ✅</div>
+        <div style="opacity:.78; font-size:12px;">созрело</div>
+      </div>
+    </div>
+    <div class="bar" style="margin-top:12px;">
+      <i style="width:${clamp(Math.floor((state.stats.xp / xpForNextLevel(state.stats.level)) * 100),0,100)}%"></i>
+    </div>
+    <div style="opacity:.78; font-size:12px; margin-top:8px;">
+      XP: ${state.stats.xp}/${xpForNextLevel(state.stats.level)} до следующего уровня
+    </div>
+  `;
+  top.appendChild(topCard);
+
+  // Список построек
+  const list = $("#yardList");
+  list.innerHTML = "";
+
+  for (const b of BUILDINGS){
+    const u = getUpgrade(b.upgradeId);
+    const lvl = state.upgrades[b.upgradeId] || 0;
+    const max = u?.max ?? 0;
+    const price = u ? upgradePrice(u) : 0;
+    const canBuy = u && lvl < max && state.coins >= price;
+
+    const pct = max > 0 ? Math.floor((lvl / max) * 100) : 0;
+
+    const card = document.createElement("div");
+    card.className = "plot growing";
+    card.style.aspectRatio = "auto";
+    card.style.padding = "14px";
+    card.style.cursor = "default";
+    card.innerHTML = `
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="font-weight:900; font-size:14px;">
+            ${b.emoji} ${b.name}
+            <span style="opacity:.75;">(ур. ${lvl}/${max})</span>
+          </div>
+          <div style="opacity:.86; font-size:12px; line-height:1.25;">${b.desc}</div>
+          <div style="opacity:.92; font-size:12px;">
+            Цена улучшения: <b>${price}💰</b>
+          </div>
+        </div>
+
+        <button class="btn small" ${canBuy ? "" : "disabled"}>
+          ${lvl >= max ? "MAX" : (canBuy ? "Улучшить" : "Мало 💰")}
+        </button>
+      </div>
+
+      <div class="bar" style="margin-top:12px;">
+        <i style="width:${pct}%"></i>
+      </div>
+
+      <div style="opacity:.78; font-size:12px; margin-top:8px;">
+        Бонус: ${
+          b.upgradeId === "watering" ? `рост ×${Math.round(100*growthMultiplier())}%` :
+          b.upgradeId === "barn" ? `продажа ×${Math.round(100*sellMultiplier())}%` :
+          `макс. энергия ${state.energyMax}`
+        }
+      </div>
+    `;
+
+    const btn = card.querySelector("button");
+    btn.addEventListener("click", () => buyUpgradeFromYard(b.upgradeId));
+
+    list.appendChild(card);
+  }
+}
+
+// ---------- Quests ----------
 function questPack(){
-  // ежедневный набор целей (привязан к дню)
   const today = dayKey(new Date());
-  // фиксированно, но можно сделать рандомом по today
-  const targets = {
-    day: today,
-    plant: 8,
-    harvest: 8,
-  };
-  return targets;
+  return { day: today, plant: 8, harvest: 8 };
 }
 
 function renderQuests(){
@@ -495,28 +625,14 @@ function renderQuests(){
   const hProg = clamp(state.stats.harvested, 0, 1e9);
 
   const items = [
-    {
-      title: "Посади культуры",
-      icon: "🌱",
-      desc: `Цель: ${q.plant}`,
-      prog: Math.min(q.plant, pProg),
-      goal: q.plant,
-      reward: 20
-    },
-    {
-      title: "Собери урожай",
-      icon: "🌾",
-      desc: `Цель: ${q.harvest}`,
-      prog: Math.min(q.harvest, hProg),
-      goal: q.harvest,
-      reward: 25
-    }
+    { title:"Посади культуры", icon:"🌱", desc:`Цель: ${q.plant}`, prog:Math.min(q.plant, pProg), goal:q.plant, reward:20 },
+    { title:"Собери урожай", icon:"🌾", desc:`Цель: ${q.harvest}`, prog:Math.min(q.harvest, hProg), goal:q.harvest, reward:25 }
   ];
 
   for (const it of items){
     const done = it.prog >= it.goal;
     const card = document.createElement("div");
-    card.className = "plot ready"; // используем красивую “карточку”
+    card.className = "plot ready";
     card.style.aspectRatio = "auto";
     card.style.padding = "14px";
     card.style.cursor = "default";
@@ -535,17 +651,15 @@ function renderQuests(){
         <i style="width:${clamp(pct,0,100)}%"></i>
       </div>
       <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
-        <button class="btn small" ${done ? "" : "disabled"} data-reward="${it.reward}">
-          ${done ? "Забрать" : "Не готово"}
-        </button>
+        <button class="btn small" ${done ? "" : "disabled"}>${done ? "Забрать" : "Не готово"}</button>
       </div>
     `;
 
     const btn = card.querySelector("button");
     btn.addEventListener("click", async () => {
       if (!done) return;
-      // защита от многократного забора: просто “съедаем” прогресс (как пример)
-      // делаем это аккуратно: уменьшаем счётчики на goal (чтобы квесты можно было повторять в тот же день)
+
+      // Чтобы квесты можно было выполнять много раз: “съедаем” прогресс
       if (it.title.includes("Посади")) state.stats.planted = Math.max(0, state.stats.planted - it.goal);
       if (it.title.includes("Собери")) state.stats.harvested = Math.max(0, state.stats.harvested - it.goal);
 
@@ -561,6 +675,7 @@ function renderQuests(){
   }
 }
 
+// ---------- Shop ----------
 function renderShop(){
   const list = $("#shopList");
   list.innerHTML = "";
@@ -611,17 +726,17 @@ function renderShop(){
       await save();
       renderTop();
       renderShop();
-      // обновим ферму, т.к. влияет на скорость/прибыль
+
       normalizeGrowth();
       renderChips();
       renderField();
       renderFarmBottom();
+      renderYard();
     });
 
     list.appendChild(card);
   }
 
-  // мини-инфо
   const info = document.createElement("div");
   info.className = "plot growing";
   info.style.aspectRatio = "auto";
@@ -648,7 +763,6 @@ function startGrowingPlot(p, crop){
   p.stage = 0;
   p.plantedAt = t;
 
-  // стадии 0->1 (50%), 1->2 (100%)
   p.nextStageAt = t + Math.floor(total * 0.5);
   p.readyAt = t + Math.floor(total);
 }
@@ -662,7 +776,7 @@ async function plant(idx){
 
   if (state.energy < 1){
     haptic("notification","error");
-    toast("Не хватает энергии ⚡ (она восстановится сама)");
+    toast("Не хватает энергии ⚡ (восстановится сама)");
     return;
   }
   if (state.coins < crop.cost){
@@ -718,7 +832,6 @@ async function harvest(idx){
     setTimeout(() => fx.remove(), 650);
   }
 
-  // очистка
   p.status = "empty";
   p.cropId = null;
   p.stage = 0;
@@ -769,7 +882,6 @@ async function claimDaily(){
   const today = dayKey(new Date());
   if (state.daily.lastClaimDay === today) return;
 
-  // бонус растёт от уровня
   const reward = 30 + state.stats.level * 6;
   state.coins += reward;
   state.energy = clamp(state.energy + 5, 0, state.energyMax);
@@ -789,19 +901,18 @@ async function tick(){
   normalizeGrowth();
 
   const afterReady = state.plots.filter(p => p.status === "ready").length;
-
-  // если что-то дозрело — подсейвим
   if (afterReady !== beforeReady){
     await save();
   }
 
-  // обновление UI: чаще — поле и верх
   renderTop();
 
-  // перерисовка поля только если на ферме
   if ($("#screenFarm").style.display !== "none"){
     renderField();
     renderFarmBottom();
+  }
+  if ($("#screenYard").style.display !== "none"){
+    renderYard();
   }
 }
 
@@ -810,6 +921,7 @@ async function resetGame(){
   if (!confirm("Сбросить прогресс?")) return;
 
   state.coins = 20;
+
   state.energy = 20;
   state.energyMax = 20;
   state.lastEnergyTick = nowMs();
@@ -833,6 +945,7 @@ function renderAll(){
   renderChips();
   renderFarmBottom();
   renderField();
+  renderYard();
 }
 
 // ---------- Boot ----------
@@ -848,23 +961,16 @@ async function boot(){
     });
   });
 
-  // daily bonus
   $("#dailyBtn").addEventListener("click", () => claimDaily());
-
-  // reset
   $("#resetBtn").addEventListener("click", () => resetGame());
 
-  // default tab
   setTab("farm");
-
   renderAll();
 
-  // авто-сейв при скрытии
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState === "hidden") await save();
   });
 
-  // game loop
   setInterval(() => { tick(); }, 450);
 }
 
