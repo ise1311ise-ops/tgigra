@@ -11,105 +11,47 @@
   <div class="bg"></div>
 
   <header class="topbar">
-    <button class="icon-btn" id="btnBack" aria-label="Назад">
-      <span class="icon">←</span>
-    </button>
+    <button class="icon-btn" aria-label="Назад"><span class="icon">←</span></button>
 
     <div class="titlewrap">
-      <h1 class="title" id="screenTitle">Время молитв</h1>
-      <div class="subtitle">
-        <span class="pin">📍</span>
-        <span id="cityName">Сергиев Посад</span>
-      </div>
+      <h1 class="title">Кибла</h1>
+      <div class="subtitle"><span class="pin">📍</span> Сергиев Посад</div>
     </div>
 
     <div class="top-actions">
-      <button class="icon-btn" id="btnSearch" aria-label="Поиск"><span class="icon">⌕</span></button>
-      <button class="icon-btn" id="btnMore" aria-label="Меню"><span class="icon">⋮</span></button>
+      <button class="icon-btn" aria-label="Поиск"><span class="icon">⌕</span></button>
+      <button class="icon-btn" aria-label="Меню"><span class="icon">⋮</span></button>
     </div>
   </header>
 
   <main class="container">
-    <!-- PRAYERS -->
-    <section class="screen" id="screenPrayers">
-      <div class="glass hero">
-        <div class="hero-left">
-          <div class="hero-label">До следующей молитвы</div>
-          <div class="hero-timer" id="countdown">00:00:00</div>
-        </div>
-        <div class="hero-right">
-          <div class="hero-small">до <span id="nextPrayerName">Asr</span></div>
-        </div>
+    <div class="qibla-wrap">
+      <div class="compass">
+        <img class="compass-base" src="./kompas.png" alt="Компас">
+        <!-- ВАЖНО: id="arrow" чтобы JS точно нашел -->
+        <img class="compass-arrow" id="arrow" src="./strelka.png" alt="Стрелка">
+        <div class="compass-glow"></div>
       </div>
 
-      <div class="section-title">Метод расчёта времени молитв</div>
-      <div class="chips" id="methodChips">
-        <button class="chip" data-method="ISNA">ISNA</button>
-        <button class="chip" data-method="MWL">MWL</button>
-        <button class="chip active" data-method="Umm al-Qura">Umm al-Qura</button>
-        <button class="chip" data-method="Egypt">Egypt</button>
-      </div>
-
-      <div class="list" id="prayerList"></div>
-    </section>
-
-    <!-- QIBLA -->
-    <section class="screen hidden" id="screenQibla">
-      <div class="qibla-wrap">
-        <div class="compass">
-          <img class="compass-base" src="./kompas.png" alt="Компас" />
-          <img class="compass-arrow" id="arrow" src="./strelka.png" alt="Стрелка" />
-          <div class="compass-glow"></div>
+      <div class="glass qibla-hint">
+        <div class="qibla-row">
+          <div class="qibla-label">Азимут до Киблы</div>
+          <div class="qibla-value"><span id="qiblaAzimuth">160</span>°</div>
         </div>
 
-        <div class="qibla-hint glass">
-          <div class="qibla-row">
-            <div class="qibla-label">Азимут до Киблы</div>
-            <div class="qibla-value"><span id="qiblaAzimuth">—</span>°</div>
-          </div>
-
-          <div class="qibla-row">
-            <div class="qibla-label">Текущее направление</div>
-            <div class="qibla-value"><span id="heading">—</span>°</div>
-          </div>
-
-          <div class="qibla-row thin">
-            <div class="qibla-note">Если датчик недоступен — используйте демо-ползунок.</div>
-          </div>
-
-          <input id="demoHeading" class="range" type="range" min="0" max="360" value="0" />
+        <div class="qibla-row">
+          <div class="qibla-label">Текущее направление</div>
+          <div class="qibla-value"><span id="heading">0</span>°</div>
         </div>
-      </div>
-    </section>
-  </main>
 
-  <nav class="tabs">
-    <button class="tab active" id="tabPrayers">
-      <span class="tab-label">Время молитв</span>
-      <span class="tab-underline"></span>
-    </button>
-    <button class="tab" id="tabQibla">
-      <span class="tab-label">Кибла</span>
-      <span class="tab-underline"></span>
-    </button>
-  </nav>
+        <div class="qibla-row thin">
+          <div class="qibla-note">Если датчик недоступен — используйте демо-ползунок.</div>
+        </div>
 
-  <!-- MENU -->
-  <div class="modal hidden" id="menuModal">
-    <div class="modal-card glass">
-      <div class="modal-title">Меню</div>
-
-      <button class="menu-item" id="btnFeedback"><span class="mi-ico">✉️</span><span class="mi-text">Обратная связь</span></button>
-      <button class="menu-item" id="btnRate"><span class="mi-ico">⭐</span><span class="mi-text">Оценить нас</span></button>
-      <button class="menu-item" id="btnShare"><span class="mi-ico">📤</span><span class="mi-text">Поделиться приложением</span></button>
-      <button class="menu-item" id="btnPrivacy"><span class="mi-ico">📜</span><span class="mi-text">Политика конфиденциальности</span></button>
-
-      <div class="modal-actions">
-        <button class="link" id="btnCloseMenu">Закрыть</button>
+        <input id="demoHeading" class="range" type="range" min="0" max="360" value="0">
       </div>
     </div>
-    <div class="modal-backdrop" data-close="menu"></div>
-  </div>
+  </main>
 
   <script src="./game.js"></script>
 </body>
