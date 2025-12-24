@@ -1,70 +1,69 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Glass Planner</title>
-    <meta name="theme-color" content="#f4f7ff" />
-    <link rel="stylesheet" href="style.css" />
-  </head>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Glass Calendar Planner</title>
+  <meta name="theme-color" content="#0b0f18" />
+  <link rel="stylesheet" href="style.css" />
+</head>
 
-  <body>
-    <main class="wrap">
-      <header class="top">
-        <div class="brand card">
-          <div class="brand__left">
-            <h1 class="title">Glass Planner</h1>
-            <div class="subtitle" id="today"></div>
-          </div>
+<body>
+  <main class="app">
+    <!-- Top bar -->
+    <header class="topbar">
+      <button class="iconbtn" id="btnPrev" aria-label="Предыдущий месяц">
+        <span class="chev">‹</span>
+      </button>
 
-          <div class="focus">
-            <div class="focus__label">Фокус</div>
-            <div class="focus__value" id="focusValue">—</div>
-          </div>
+      <div class="topbar__center">
+        <div class="month" id="monthTitle">—</div>
+      </div>
+
+      <button class="iconbtn" id="btnNext" aria-label="Следующий месяц">
+        <span class="chev">›</span>
+      </button>
+    </header>
+
+    <!-- Calendar -->
+    <section class="card calendar">
+      <div class="dow">
+        <div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div class="sun">ВС</div>
+      </div>
+      <div class="grid" id="grid" aria-label="Календарь месяца"></div>
+    </section>
+
+    <!-- Day panel -->
+    <section class="card day">
+      <div class="day__head">
+        <div class="day__big" id="dayBig">—</div>
+        <div class="day__small" id="daySmall">—</div>
+      </div>
+
+      <div class="list" id="list"></div>
+
+      <div class="composer">
+        <form id="addForm" class="composer__form" autocomplete="off">
+          <input
+            id="taskInput"
+            class="input"
+            type="text"
+            placeholder="Добавь событие / задачу… (Enter)"
+            maxlength="160"
+          />
+          <button class="fab" type="submit" aria-label="Добавить">+</button>
+        </form>
+
+        <div class="composer__actions">
+          <button class="ghost" id="clearDay" type="button">Очистить день</button>
+          <button class="ghost" id="clearDone" type="button">Очистить выполненные</button>
         </div>
-      </header>
+      </div>
+    </section>
 
-      <section class="card panel">
-        <div class="add">
-          <form id="addForm" class="add__form" autocomplete="off">
-            <input
-              id="taskInput"
-              class="input"
-              type="text"
-              placeholder='Добавить задачу… (Enter). Фокус: "/" или Ctrl/⌘K'
-              maxlength="140"
-            />
-            <button class="btn btn--primary" type="submit">Добавить</button>
-          </form>
+    <div class="hint">Тап по дате → дела для этого дня · Enter — добавить</div>
+  </main>
 
-          <div class="segmented" role="tablist" aria-label="Секции">
-            <button class="segmented__btn is-active" type="button" data-section="today" role="tab">Сегодня</button>
-            <button class="segmented__btn" type="button" data-section="tomorrow" role="tab">Завтра</button>
-            <button class="segmented__btn" type="button" data-section="later" role="tab">Позже</button>
-          </div>
-        </div>
-
-        <div class="tools">
-          <div class="filters">
-            <button class="chip is-active" data-filter="all" type="button">Все</button>
-            <button class="chip" data-filter="active" type="button">Активные</button>
-            <button class="chip" data-filter="done" type="button">Готово</button>
-          </div>
-
-          <input id="searchInput" class="input input--search" type="text" placeholder="Поиск…" maxlength="140" />
-        </div>
-
-        <div id="groups" class="groups"></div>
-
-        <footer class="footer">
-          <div class="stats" id="stats">—</div>
-          <button class="btn btn--ghost" id="clearDone" type="button" disabled>Очистить выполненные</button>
-        </footer>
-      </section>
-
-      <div class="hint">Enter — добавить · / или Ctrl/⌘K — фокус на вводе</div>
-    </main>
-
-    <script src="app.js" defer></script>
-  </body>
+  <script src="app.js" defer></script>
+</body>
 </html>
