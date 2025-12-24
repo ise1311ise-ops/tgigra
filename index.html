@@ -10,41 +10,51 @@
 
   <body>
     <main class="wrap">
-      <header class="card header">
-        <div class="header__left">
-          <h1 class="title">Планер</h1>
-          <div class="subtitle" id="today"></div>
-        </div>
+      <header class="top">
+        <div class="brand card">
+          <div class="brand__left">
+            <h1 class="title">Glass Planner</h1>
+            <div class="subtitle" id="today"></div>
+          </div>
 
-        <div class="pill">
-          <div class="pill__label">Фокус</div>
-          <div class="pill__value" id="focusValue">—</div>
+          <div class="focus">
+            <div class="focus__label">Фокус</div>
+            <div class="focus__value" id="focusValue">—</div>
+          </div>
         </div>
       </header>
 
       <section class="card panel">
-        <form id="addForm" class="row" autocomplete="off">
-          <input
-            id="taskInput"
-            class="input"
-            type="text"
-            placeholder='Добавить задачу… (Enter). Фокус: "/" или Ctrl/⌘K'
-            maxlength="140"
-          />
-          <button class="btn" type="submit" aria-label="Добавить задачу">Добавить</button>
-        </form>
+        <div class="add">
+          <form id="addForm" class="add__form" autocomplete="off">
+            <input
+              id="taskInput"
+              class="input"
+              type="text"
+              placeholder='Добавить задачу… (Enter). Фокус: "/" или Ctrl/⌘K'
+              maxlength="140"
+            />
+            <button class="btn btn--primary" type="submit">Добавить</button>
+          </form>
 
-        <div class="row row--tight">
-          <button class="chip chip--active" data-filter="all" type="button">Все</button>
-          <button class="chip" data-filter="active" type="button">Активные</button>
-          <button class="chip" data-filter="done" type="button">Готово</button>
+          <div class="segmented" role="tablist" aria-label="Секции">
+            <button class="segmented__btn is-active" type="button" data-section="today" role="tab">Сегодня</button>
+            <button class="segmented__btn" type="button" data-section="tomorrow" role="tab">Завтра</button>
+            <button class="segmented__btn" type="button" data-section="later" role="tab">Позже</button>
+          </div>
         </div>
 
-        <div class="row">
-          <input id="searchInput" class="input" type="text" placeholder="Поиск по задачам…" maxlength="140" />
+        <div class="tools">
+          <div class="filters">
+            <button class="chip is-active" data-filter="all" type="button">Все</button>
+            <button class="chip" data-filter="active" type="button">Активные</button>
+            <button class="chip" data-filter="done" type="button">Готово</button>
+          </div>
+
+          <input id="searchInput" class="input input--search" type="text" placeholder="Поиск…" maxlength="140" />
         </div>
 
-        <div id="list" class="list" role="list"></div>
+        <div id="groups" class="groups"></div>
 
         <footer class="footer">
           <div class="stats" id="stats">—</div>
