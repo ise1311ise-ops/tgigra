@@ -3,78 +3,184 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#05070b" />
-  <title>Зикр</title>
-
-  <!-- Telegram Mini App SDK -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-  <link rel="stylesheet" href="style.css" />
+  <title>Prayer Mini App</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 
 <body>
-  <div class="app">
-    <header class="topbar">
-      <button class="icon-btn" id="btnMenu" aria-label="Меню">☰</button>
-      <div class="topbar-spacer"></div>
-      <button class="icon-btn" id="btnSettings" aria-label="Настройки">⚙</button>
-    </header>
+  <div class="bg"></div>
 
-    <main class="content">
-      <div class="moon">☾</div>
+  <header class="topbar">
+    <button class="icon-btn" id="btnBack" aria-label="Назад">
+      <span class="icon">←</span>
+    </button>
 
-      <div class="status">
-        Текущий зикр: <span class="status-strong" id="zikrName">SubhanAllah</span>
-        <span class="dot">•</span>
-        <span id="progressText">0 / 33</span>
-      </div>
-
-      <button class="choose" id="btnChoose">Выбрать зикр</button>
-
-      <button class="tap" id="tapBtn" aria-label="Тап">
-        <div class="tap-inner">
-          <div class="tap-number" id="countText">0</div>
-          <div class="tap-label">Общее количество</div>
-        </div>
-      </button>
-
-      <button class="reset" id="btnReset">Сбросить</button>
-    </main>
-
-    <!-- Bottom-sheet: Выбор зикра -->
-    <div class="modal-backdrop" id="modalBackdrop" hidden>
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-        <div class="modal-title" id="modalTitle">Выбор зикра</div>
-
-        <div class="field">
-          <label>Зикр</label>
-          <select id="zikrSelect">
-            <option value="SubhanAllah">SubhanAllah</option>
-            <option value="Alhamdulillah">Alhamdulillah</option>
-            <option value="Allahu Akbar">Allahu Akbar</option>
-            <option value="La ilaha illallah">La ilaha illallah</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Цель</label>
-          <div class="targets">
-            <button class="chip" type="button" data-target="33">33</button>
-            <button class="chip" type="button" data-target="99">99</button>
-            <button class="chip" type="button" data-target="100">100</button>
-          </div>
-          <input id="customTarget" class="input" inputmode="numeric" placeholder="или своё число, например 5555" />
-        </div>
-
-        <div class="modal-actions">
-          <button class="btn secondary" type="button" id="btnClose">Закрыть</button>
-          <button class="btn primary" type="button" id="btnSave">Сохранить</button>
-        </div>
+    <div class="titlewrap">
+      <h1 class="title" id="screenTitle">Время молитв</h1>
+      <div class="subtitle" id="screenSubtitle">
+        <span class="pin">📍</span>
+        <span id="cityName">Сергиев Посад</span>
       </div>
     </div>
 
+    <div class="top-actions">
+      <button class="icon-btn" id="btnSearch" aria-label="Поиск">
+        <span class="icon">⌕</span>
+      </button>
+      <button class="icon-btn" id="btnMore" aria-label="Меню">
+        <span class="icon">⋮</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- PRAYER SCREEN -->
+    <section class="screen" id="screenPrayers" data-screen="prayers">
+      <div class="glass hero">
+        <div class="hero-left">
+          <div class="hero-label">До следующей молитвы</div>
+          <div class="hero-timer" id="countdown">00:00:00</div>
+        </div>
+        <div class="hero-right">
+          <div class="hero-small">до <span id="nextPrayerName">Asr</span></div>
+        </div>
+      </div>
+
+      <div class="section-title">Метод расчёта времени молитв</div>
+      <div class="chips" id="methodChips">
+        <button class="chip" data-method="ISNA">ISNA</button>
+        <button class="chip" data-method="MWL">MWL</button>
+        <button class="chip active" data-method="Umm al-Qura">Umm al-Qura</button>
+        <button class="chip" data-method="Egypt">Egypt</button>
+      </div>
+
+      <div class="list" id="prayerList">
+        <!-- items injected -->
+      </div>
+    </section>
+
+    <!-- QIBLA SCREEN -->
+    <section class="screen hidden" id="screenQibla" data-screen="qibla">
+      <div class="qibla-wrap">
+        <div class="compass">
+          <img class="compass-base" src="./assets/kompas.png" alt="Компас" />
+          <img class="compass-arrow" id="arrow" src="./assets/strelka.png" alt="Стрелка" />
+          <div class="compass-glow"></div>
+        </div>
+
+        <div class="qibla-hint glass">
+          <div class="qibla-row">
+            <div class="qibla-label">Азимут до Киблы</div>
+            <div class="qibla-value"><span id="qiblaAzimuth">—</span>°</div>
+          </div>
+
+          <div class="qibla-row">
+            <div class="qibla-label">Текущее направление</div>
+            <div class="qibla-value"><span id="heading">—</span>°</div>
+          </div>
+
+          <div class="qibla-row thin">
+            <div class="qibla-note">Если датчик недоступен — используйте демо-ползунок.</div>
+          </div>
+
+          <input id="demoHeading" class="range" type="range" min="0" max="360" value="0" />
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- bottom tabs -->
+  <nav class="tabs">
+    <button class="tab active" data-tab="prayers" id="tabPrayers">
+      <span class="tab-label">Время молитв</span>
+      <span class="tab-underline"></span>
+    </button>
+    <button class="tab" data-tab="qibla" id="tabQibla">
+      <span class="tab-label">Кибла</span>
+      <span class="tab-underline"></span>
+    </button>
+  </nav>
+
+  <!-- MENU MODAL -->
+  <div class="modal hidden" id="menuModal" role="dialog" aria-modal="true" aria-label="Меню">
+    <div class="modal-card glass">
+      <div class="modal-title">Меню</div>
+
+      <button class="menu-item" id="btnFeedback">
+        <span class="mi-ico">✉️</span>
+        <span class="mi-text">Обратная связь</span>
+      </button>
+
+      <button class="menu-item" id="btnRate">
+        <span class="mi-ico">⭐</span>
+        <span class="mi-text">Оценить нас</span>
+      </button>
+
+      <button class="menu-item" id="btnShare">
+        <span class="mi-ico">📤</span>
+        <span class="mi-text">Поделиться приложением</span>
+      </button>
+
+      <button class="menu-item" id="btnPrivacy">
+        <span class="mi-ico">📜</span>
+        <span class="mi-text">Политика конфиденциальности</span>
+      </button>
+
+      <div class="modal-actions">
+        <button class="link" id="btnCloseMenu">Закрыть</button>
+      </div>
+    </div>
+    <div class="modal-backdrop" data-close="menu"></div>
   </div>
 
-  <script src="game.js"></script>
+  <!-- SETTINGS MODAL -->
+  <div class="modal hidden" id="settingsModal" role="dialog" aria-modal="true" aria-label="Настройки">
+    <div class="modal-card glass">
+      <div class="modal-title">Настройки</div>
+
+      <button class="setting-item" id="btnNotifyBefore">
+        <div class="si-left">
+          <div class="si-title">Уведомления до молитвы</div>
+          <div class="si-sub" id="notifyBeforeLabel">За 10 мин</div>
+        </div>
+        <div class="si-right">›</div>
+      </button>
+
+      <button class="setting-item" id="btnNotifyMode">
+        <div class="si-left">
+          <div class="si-title">Режим уведомлений</div>
+          <div class="si-sub" id="notifyModeLabel">Звук</div>
+        </div>
+        <div class="si-right">›</div>
+      </button>
+
+      <button class="setting-item" id="btnNotifySound">
+        <div class="si-left">
+          <div class="si-title">Звук уведомления</div>
+          <div class="si-sub" id="notifySoundLabel">Alien</div>
+        </div>
+        <div class="si-right">›</div>
+      </button>
+
+      <button class="setting-item" id="btnLanguage">
+        <div class="si-left">
+          <div class="si-title">Язык приложения</div>
+          <div class="si-sub" id="langLabel">System default</div>
+        </div>
+        <div class="si-right">›</div>
+      </button>
+
+      <div class="settings-note">
+        Если уведомления не приходят — проверь разрешения в настройках системы.
+      </div>
+
+      <div class="modal-actions">
+        <button class="link" id="btnCloseSettings">Закрыть</button>
+      </div>
+    </div>
+    <div class="modal-backdrop" data-close="settings"></div>
+  </div>
+
+  <script src="./game.js"></script>
 </body>
 </html>
