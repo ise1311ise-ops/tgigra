@@ -1,9 +1,10 @@
-const STORAGE_KEY = "glass-planner:v1";
+const STORAGE_KEY = "glass-planner:v2";
 
 let state = {
   tasks: [],
-  filter: "all", // all | active | done
+  filter: "all",      // all | active | done
   query: "",
+  sectionPick: "today" // today | tomorrow | later (куда добавляем)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -14,14 +15,14 @@ const el = {
   addForm: $("addForm"),
   taskInput: $("taskInput"),
   searchInput: $("searchInput"),
-  list: $("list"),
+  groups: $("groups"),
   stats: $("stats"),
   clearDone: $("clearDone"),
-  chips: () => Array.from(document.querySelectorAll("[data-filter]")),
+  filterChips: () => Array.from(document.querySelectorAll("[data-filter]")),
+  sectionBtns: () => Array.from(document.querySelectorAll("[data-section]")),
 };
 
 function uid() {
-  // modern browsers (GitHub Pages ok)
   return crypto.randomUUID();
 }
 
@@ -31,13 +32,6 @@ function formatToday() {
     day: "2-digit",
     month: "long",
   }).format(new Date());
-}
-
-function formatTime(ts) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(ts);
 }
 
 function load() {
@@ -58,12 +52,15 @@ function save() {
 function addTask(title) {
   const t = title.trim();
   if (!t) return;
+
   state.tasks.unshift({
     id: uid(),
     title: t,
     done: false,
-    createdAt: Date.now(),
+    section: state.sectionPick, // today/tomorrow/later
+    createdAt: Date.now(),      // храним, но НЕ показываем (может пригодиться)
   });
+
   save();
   render();
 }
@@ -88,7 +85,7 @@ function clearDone() {
 
 function setFilter(f) {
   state.filter = f;
-  el.chips().forEach((btn) => btn.classList.toggle("chip--active", btn.dataset.filter === f));
+  el.filterChips().forEach((btn) => btn.classList.toggle("is-active", btn.dataset.filter === f));
   render();
 }
 
@@ -97,7 +94,14 @@ function setQuery(q) {
   render();
 }
 
-function stats() {
+function setSectionPick(s) {
+  state.sectionPick = s;
+  el.sectionBtns().forEach((btn) => btn.classList.toggle("is-active", btn.dataset.section === s));
+  // легкий UX: фокус на вводе после выбора секции
+  el.taskInput.focus();
+}
+
+function getStats() {
   const total = state.tasks.length;
   const done = state.tasks.filter((t) => t.done).length;
   const left = total - done;
@@ -114,30 +118,40 @@ function visibleTasks() {
       return true;
     })
     .filter((t) => (q ? t.title.toLowerCase().includes(q) : true))
+    // сначала невыполненные, потом выполненные
     .sort((a, b) => (a.done === b.done ? b.createdAt - a.createdAt : a.done ? 1 : -1));
 }
 
-function emptyStateNode() {
-  const box = document.createElement("div");
-  box.className = "item";
-  box.style.justifyContent = "center";
-  box.style.padding = "18px 12px";
-  box.innerHTML = `
-    <div style="text-align:center;">
-      <div style="font-weight:650; font-size:16px; color: rgba(17,24,39,.95);">Пока пусто</div>
-      <div style="margin-top:4px; color: rgba(17,24,39,.62);">Добавь первую задачу. Минимум шума — максимум фокуса.</div>
-    </div>
-  `;
-  return box;
+function groupTitle(key) {
+  if (key === "today") return "Сегодня";
+  if (key === "tomorrow") return "Завтра";
+  return "Позже";
+}
+
+function escapeHtml(str) {
+  return str
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function emptyItem(text) {
+  const row = document.createElement("div");
+  row.className = "item";
+  row.style.justifyContent = "center";
+  row.style.padding = "16px 12px";
+  row.innerHTML = `<div style="color: rgba(15,23,42,.62)">${escapeHtml(text)}</div>`;
+  return row;
 }
 
 function taskNode(task) {
   const row = document.createElement("div");
-  row.className = `item ${task.done ? "item--done" : ""}`;
-  row.setAttribute("role", "listitem");
+  row.className = `item ${task.done ? "is-done" : ""}`;
 
   const check = document.createElement("button");
-  check.className = `check ${task.done ? "check--done" : ""}`;
+  check.className = `check ${task.done ? "is-done" : ""}`;
   check.type = "button";
   check.ariaLabel = task.done ? "Отметить как не выполнено" : "Отметить как выполнено";
   check.innerHTML = `
@@ -149,10 +163,7 @@ function taskNode(task) {
 
   const main = document.createElement("div");
   main.className = "item__main";
-  main.innerHTML = `
-    <div class="item__title">${escapeHtml(task.title)}</div>
-    <div class="item__meta">${formatTime(task.createdAt)}</div>
-  `;
+  main.innerHTML = `<div class="item__title">${escapeHtml(task.title)}</div>`;
 
   const del = document.createElement("button");
   del.className = "iconbtn";
@@ -165,32 +176,56 @@ function taskNode(task) {
   return row;
 }
 
-function escapeHtml(str) {
-  return str
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function groupNode(key, tasks) {
+  const box = document.createElement("section");
+  box.className = "group";
+
+  const head = document.createElement("div");
+  head.className = "group__head";
+
+  const title = document.createElement("div");
+  title.className = "group__title";
+  title.textContent = groupTitle(key);
+
+  const badge = document.createElement("div");
+  badge.className = "badge";
+  badge.textContent = `${tasks.filter(t => !t.done).length} активн. · ${tasks.length} всего`;
+
+  head.append(title, badge);
+
+  const list = document.createElement("div");
+  list.className = "list";
+
+  if (tasks.length === 0) {
+    list.appendChild(emptyItem("Пока пусто в этой секции"));
+  } else {
+    tasks.forEach((t) => list.appendChild(taskNode(t)));
+  }
+
+  box.append(head, list);
+  return box;
 }
 
 function render() {
-  // header
   el.today.textContent = formatToday();
 
-  const s = stats();
+  const s = getStats();
   el.focusValue.textContent = s.left === 0 ? "Свободно ✨" : `${s.left} задач(и)`;
   el.stats.innerHTML = `Осталось: <b>${s.left}</b> · Готово: <b>${s.done}</b> · Всего: <b>${s.total}</b>`;
   el.clearDone.disabled = s.done === 0;
 
-  // list
-  el.list.innerHTML = "";
-  const items = visibleTasks();
-  if (items.length === 0) {
-    el.list.appendChild(emptyStateNode());
-    return;
+  // группируем по секциям
+  const tasks = visibleTasks();
+  const map = { today: [], tomorrow: [], later: [] };
+  for (const t of tasks) {
+    const sec = t.section || "today";
+    (map[sec] || map.today).push(t);
   }
-  items.forEach((t) => el.list.appendChild(taskNode(t)));
+
+  el.groups.innerHTML = "";
+  el.groups.appendChild(groupNode("today", map.today));
+  el.groups.appendChild(groupNode("tomorrow", map.tomorrow));
+  el.groups.appendChild(groupNode("later", map.later));
 }
 
 function bind() {
@@ -203,13 +238,17 @@ function bind() {
 
   el.searchInput.addEventListener("input", (e) => setQuery(e.target.value));
 
-  el.chips().forEach((btn) => {
+  el.filterChips().forEach((btn) => {
     btn.addEventListener("click", () => setFilter(btn.dataset.filter));
+  });
+
+  el.sectionBtns().forEach((btn) => {
+    btn.addEventListener("click", () => setSectionPick(btn.dataset.section));
   });
 
   el.clearDone.addEventListener("click", clearDone);
 
-  // shortcuts: "/" or Ctrl/⌘K focus
+  // shortcuts
   window.addEventListener("keydown", (e) => {
     const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
     if (!isInput && e.key === "/") {
@@ -228,6 +267,7 @@ function init() {
   load();
   bind();
   setFilter("all");
+  setSectionPick("today");
   render();
 }
 
