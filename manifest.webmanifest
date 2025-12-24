@@ -1,0 +1,15 @@
+{
+  "name": "Время молитв",
+  "short_name": "Молитвы",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#050a12",
+  "theme_color": "#06101e",
+  "icons": [
+    {
+      "src": "kompas.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
