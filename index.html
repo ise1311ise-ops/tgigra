@@ -17,25 +17,21 @@
 
     <div class="titlewrap">
       <h1 class="title" id="screenTitle">Время молитв</h1>
-      <div class="subtitle" id="screenSubtitle">
+      <div class="subtitle">
         <span class="pin">📍</span>
         <span id="cityName">Сергиев Посад</span>
       </div>
     </div>
 
     <div class="top-actions">
-      <button class="icon-btn" id="btnSearch" aria-label="Поиск">
-        <span class="icon">⌕</span>
-      </button>
-      <button class="icon-btn" id="btnMore" aria-label="Меню">
-        <span class="icon">⋮</span>
-      </button>
+      <button class="icon-btn" id="btnSearch" aria-label="Поиск"><span class="icon">⌕</span></button>
+      <button class="icon-btn" id="btnMore" aria-label="Меню"><span class="icon">⋮</span></button>
     </div>
   </header>
 
   <main class="container">
-    <!-- PRAYER SCREEN -->
-    <section class="screen" id="screenPrayers" data-screen="prayers">
+    <!-- PRAYERS -->
+    <section class="screen" id="screenPrayers">
       <div class="glass hero">
         <div class="hero-left">
           <div class="hero-label">До следующей молитвы</div>
@@ -57,11 +53,10 @@
       <div class="list" id="prayerList"></div>
     </section>
 
-    <!-- QIBLA SCREEN -->
-    <section class="screen hidden" id="screenQibla" data-screen="qibla">
+    <!-- QIBLA -->
+    <section class="screen hidden" id="screenQibla">
       <div class="qibla-wrap">
         <div class="compass">
-          <!-- картинки лежат в корне -->
           <img class="compass-base" src="./kompas.png" alt="Компас" />
           <img class="compass-arrow" id="arrow" src="./strelka.png" alt="Стрелка" />
           <div class="compass-glow"></div>
@@ -88,96 +83,32 @@
     </section>
   </main>
 
-  <!-- bottom tabs -->
   <nav class="tabs">
-    <button class="tab active" data-tab="prayers" id="tabPrayers">
+    <button class="tab active" id="tabPrayers">
       <span class="tab-label">Время молитв</span>
       <span class="tab-underline"></span>
     </button>
-    <button class="tab" data-tab="qibla" id="tabQibla">
+    <button class="tab" id="tabQibla">
       <span class="tab-label">Кибла</span>
       <span class="tab-underline"></span>
     </button>
   </nav>
 
-  <!-- MENU MODAL -->
-  <div class="modal hidden" id="menuModal" role="dialog" aria-modal="true" aria-label="Меню">
+  <!-- MENU -->
+  <div class="modal hidden" id="menuModal">
     <div class="modal-card glass">
       <div class="modal-title">Меню</div>
 
-      <button class="menu-item" id="btnFeedback">
-        <span class="mi-ico">✉️</span>
-        <span class="mi-text">Обратная связь</span>
-      </button>
-
-      <button class="menu-item" id="btnRate">
-        <span class="mi-ico">⭐</span>
-        <span class="mi-text">Оценить нас</span>
-      </button>
-
-      <button class="menu-item" id="btnShare">
-        <span class="mi-ico">📤</span>
-        <span class="mi-text">Поделиться приложением</span>
-      </button>
-
-      <button class="menu-item" id="btnPrivacy">
-        <span class="mi-ico">📜</span>
-        <span class="mi-text">Политика конфиденциальности</span>
-      </button>
+      <button class="menu-item" id="btnFeedback"><span class="mi-ico">✉️</span><span class="mi-text">Обратная связь</span></button>
+      <button class="menu-item" id="btnRate"><span class="mi-ico">⭐</span><span class="mi-text">Оценить нас</span></button>
+      <button class="menu-item" id="btnShare"><span class="mi-ico">📤</span><span class="mi-text">Поделиться приложением</span></button>
+      <button class="menu-item" id="btnPrivacy"><span class="mi-ico">📜</span><span class="mi-text">Политика конфиденциальности</span></button>
 
       <div class="modal-actions">
         <button class="link" id="btnCloseMenu">Закрыть</button>
       </div>
     </div>
     <div class="modal-backdrop" data-close="menu"></div>
-  </div>
-
-  <!-- SETTINGS MODAL -->
-  <div class="modal hidden" id="settingsModal" role="dialog" aria-modal="true" aria-label="Настройки">
-    <div class="modal-card glass">
-      <div class="modal-title">Настройки</div>
-
-      <button class="setting-item" id="btnNotifyBefore">
-        <div class="si-left">
-          <div class="si-title">Уведомления до молитвы</div>
-          <div class="si-sub" id="notifyBeforeLabel">За 10 мин</div>
-        </div>
-        <div class="si-right">›</div>
-      </button>
-
-      <button class="setting-item" id="btnNotifyMode">
-        <div class="si-left">
-          <div class="si-title">Режим уведомлений</div>
-          <div class="si-sub" id="notifyModeLabel">Звук</div>
-        </div>
-        <div class="si-right">›</div>
-      </button>
-
-      <button class="setting-item" id="btnNotifySound">
-        <div class="si-left">
-          <div class="si-title">Звук уведомления</div>
-          <div class="si-sub" id="notifySoundLabel">Alien</div>
-        </div>
-        <div class="si-right">›</div>
-      </button>
-
-      <button class="setting-item" id="btnLanguage">
-        <div class="si-left">
-          <div class="si-title">Язык приложения</div>
-          <div class="si-sub" id="langLabel">System default</div>
-        </div>
-        <div class="si-right">›</div>
-      </button>
-
-      <div class="settings-note">
-        Если уведомления не приходят — проверь разрешения в настройках системы.
-      </div>
-
-      <div class="modal-actions">
-        <button class="link" id="btnCloseSettings">Закрыть</button>
-      </div>
-    </div>
-    <div class="modal-backdrop" data-close="settings"></div>
   </div>
 
   <script src="./game.js"></script>
