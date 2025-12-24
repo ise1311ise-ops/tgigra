@@ -1,16 +1,13 @@
 :root{
   --bg: #06121e;
   --glass: rgba(10, 22, 34, 0.62);
-  --glass2: rgba(10, 22, 34, 0.52);
   --stroke: rgba(120, 220, 255, 0.22);
   --stroke2: rgba(120, 220, 255, 0.12);
   --text: rgba(255,255,255,0.92);
   --muted: rgba(255,255,255,0.55);
   --muted2: rgba(255,255,255,0.38);
   --accent: rgba(120, 220, 255, 0.95);
-  --accent2: rgba(120, 220, 255, 0.35);
   --shadow: rgba(0,0,0,0.35);
-  --radius: 18px;
   --radius2: 22px;
 }
 
@@ -24,7 +21,7 @@ body{
   overflow-x:hidden;
 }
 
-/* Background image */
+/* Background */
 .bg{
   position: fixed;
   inset:0;
@@ -39,14 +36,15 @@ body{
   content:"";
   position:absolute;
   inset:0;
-  background-image: url("./assets/bg_main.png");
+  /* ВАЖНО: bg_main.png лежит в корне репо */
+  background-image: url("./bg_main.png");
   background-size: cover;
   background-position: center;
   opacity: 0.95;
   z-index:-2;
 }
 
-/* Top bar */
+/* Topbar */
 .topbar{
   position: sticky;
   top: 0;
@@ -114,6 +112,7 @@ body{
   -webkit-backdrop-filter: blur(14px);
 }
 
+/* Hero */
 .hero{
   padding: 16px 16px;
   display:flex;
@@ -126,8 +125,7 @@ body{
   content:"";
   position:absolute;
   inset:-2px;
-  background:
-    linear-gradient(90deg, transparent, rgba(120,220,255,0.12), transparent);
+  background: linear-gradient(90deg, transparent, rgba(120,220,255,0.12), transparent);
   transform: translateX(-60%);
   animation: shimmer 3.2s linear infinite;
   pointer-events:none;
@@ -203,14 +201,6 @@ body{
   overflow:hidden;
   transition: 180ms ease;
 }
-.prayer-item::before{
-  content:"";
-  position:absolute;
-  inset:-2px;
-  border-radius: inherit;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset;
-  pointer-events:none;
-}
 .prayer-item.active{
   border-color: rgba(120,220,255,0.32);
   box-shadow:
@@ -228,13 +218,11 @@ body{
   width:10px; height:10px;
   border-radius: 999px;
   background: rgba(255,255,255,0.25);
-  box-shadow: 0 0 18px rgba(120,220,255,0.0);
 }
 .prayer-item.active .dot{
   background: rgba(120,220,255,0.92);
   box-shadow: 0 0 24px rgba(120,220,255,0.35);
 }
-
 .prayer-names{ display:flex; flex-direction: column; line-height: 1.1; }
 .prayer-name{ font-weight: 800; font-size: 18px; }
 .prayer-ar{ font-size: 14px; color: var(--muted2); margin-top: 4px; }
@@ -282,7 +270,6 @@ body{
   padding: 10px 10px 14px;
   position: relative;
 }
-.tab-label{ display:block; }
 .tab-underline{
   position:absolute;
   left: 18%;
@@ -298,7 +285,6 @@ body{
   box-shadow: 0 0 24px rgba(120,220,255,0.28);
 }
 
-/* Screens */
 .screen{ animation: fadeIn 180ms ease; }
 .hidden{ display:none !important; }
 @keyframes fadeIn{ from{ opacity:0; transform: translateY(6px);} to{opacity:1; transform:none;} }
@@ -311,9 +297,11 @@ body{
   gap: 16px;
   padding-top: 10px;
 }
+
+/* ✅ фикс компаса/стрелки */
 .compass{
-  width: 280px;
-  height: 280px;
+  width: 300px;
+  height: 300px;
   position: relative;
   border-radius: 999px;
   display:grid;
@@ -328,8 +316,8 @@ body{
 }
 .compass-arrow{
   position:absolute;
-  width: 78%;
-  height: 78%;
+  width: 74%;
+  height: 74%;
   object-fit: contain;
   transform-origin: 50% 50%;
   transform: rotate(0deg) translateZ(0);
