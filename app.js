@@ -1,273 +1,331 @@
-const STORAGE_KEY = "glass-planner:v2";
+const STORAGE_KEY = "glass-cal-planner:v1";
 
-let state = {
-  tasks: [],
-  filter: "all",      // all | active | done
-  query: "",
-  sectionPick: "today" // today | tomorrow | later (куда добавляем)
+/**
+ * Данные:
+ * {
+ *   "2025-12-25": [{id, text, done, createdAt}, ...],
+ *   "2025-12-26": [...]
+ * }
+ */
+let db = {};
+
+let view = {
+  year: 0,
+  month: 0,       // 0..11
+  selected: "",   // YYYY-MM-DD
 };
 
 const $ = (id) => document.getElementById(id);
 
 const el = {
-  today: $("today"),
-  focusValue: $("focusValue"),
+  monthTitle: $("monthTitle"),
+  grid: $("grid"),
+  btnPrev: $("btnPrev"),
+  btnNext: $("btnNext"),
+  dayBig: $("dayBig"),
+  daySmall: $("daySmall"),
+  list: $("list"),
   addForm: $("addForm"),
   taskInput: $("taskInput"),
-  searchInput: $("searchInput"),
-  groups: $("groups"),
-  stats: $("stats"),
+  clearDay: $("clearDay"),
   clearDone: $("clearDone"),
-  filterChips: () => Array.from(document.querySelectorAll("[data-filter]")),
-  sectionBtns: () => Array.from(document.querySelectorAll("[data-section]")),
 };
 
 function uid() {
   return crypto.randomUUID();
 }
 
-function formatToday() {
-  return new Intl.DateTimeFormat("ru-RU", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  }).format(new Date());
+function pad2(n){ return String(n).padStart(2, "0"); }
+
+function keyOf(y, m, d){
+  return `${y}-${pad2(m+1)}-${pad2(d)}`;
 }
 
-function load() {
-  try {
+function parseKey(key){
+  const [y, mm, dd] = key.split("-").map(Number);
+  return { y, m: mm-1, d: dd };
+}
+
+function load(){
+  try{
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) state.tasks = parsed;
-  } catch {}
+    if (parsed && typeof parsed === "object") db = parsed;
+  }catch{}
 }
 
-function save() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tasks));
-  } catch {}
+function save(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  }catch{}
 }
 
-function addTask(title) {
-  const t = title.trim();
+function monthName(y, m){
+  // в стиле "ДЕК."
+  const long = new Intl.DateTimeFormat("ru-RU", { month: "short" }).format(new Date(y, m, 1));
+  return (long.replace(".", "") + ".").toUpperCase();
+}
+
+function weekdayShortRu(date){
+  return new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(date);
+}
+
+function dayLabelRu(date){
+  // "25 чт"
+  const d = date.getDate();
+  const wd = weekdayShortRu(date); // "чт"
+  return `${d} ${wd}`;
+}
+
+function ensureDay(key){
+  if (!db[key]) db[key] = [];
+  return db[key];
+}
+
+function addTaskForSelected(text){
+  const t = text.trim();
   if (!t) return;
-
-  state.tasks.unshift({
-    id: uid(),
-    title: t,
-    done: false,
-    section: state.sectionPick, // today/tomorrow/later
-    createdAt: Date.now(),      // храним, но НЕ показываем (может пригодиться)
-  });
-
+  const list = ensureDay(view.selected);
+  list.unshift({ id: uid(), text: t, done: false, createdAt: Date.now() });
   save();
   render();
 }
 
-function toggleTask(id) {
-  state.tasks = state.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+function toggleTask(dayKey, id){
+  const list = ensureDay(dayKey);
+  db[dayKey] = list.map(x => x.id === id ? { ...x, done: !x.done } : x);
   save();
   render();
 }
 
-function removeTask(id) {
-  state.tasks = state.tasks.filter((t) => t.id !== id);
+function deleteTask(dayKey, id){
+  const list = ensureDay(dayKey);
+  db[dayKey] = list.filter(x => x.id !== id);
+  if (db[dayKey].length === 0) delete db[dayKey]; // чистим пустые дни
   save();
   render();
 }
 
-function clearDone() {
-  state.tasks = state.tasks.filter((t) => !t.done);
+function clearDoneForSelected(){
+  const k = view.selected;
+  if (!db[k]) return;
+  db[k] = db[k].filter(x => !x.done);
+  if (db[k].length === 0) delete db[k];
   save();
   render();
 }
 
-function setFilter(f) {
-  state.filter = f;
-  el.filterChips().forEach((btn) => btn.classList.toggle("is-active", btn.dataset.filter === f));
-  render();
+function clearDay(){
+  const k = view.selected;
+  if (db[k]) {
+    delete db[k];
+    save();
+    render();
+  }
 }
 
-function setQuery(q) {
-  state.query = q;
-  render();
+function getCountsForDay(dayKey){
+  const list = db[dayKey] || [];
+  const done = list.filter(x => x.done).length;
+  const total = list.length;
+  const active = total - done;
+  return { total, done, active };
 }
 
-function setSectionPick(s) {
-  state.sectionPick = s;
-  el.sectionBtns().forEach((btn) => btn.classList.toggle("is-active", btn.dataset.section === s));
-  // легкий UX: фокус на вводе после выбора секции
-  el.taskInput.focus();
+function firstDayMondayIndex(y, m){
+  // ПН=0..ВС=6
+  const js = new Date(y, m, 1).getDay(); // ВС=0..СБ=6
+  return (js + 6) % 7;
 }
 
-function getStats() {
-  const total = state.tasks.length;
-  const done = state.tasks.filter((t) => t.done).length;
-  const left = total - done;
-  return { total, done, left };
+function daysInMonth(y, m){
+  return new Date(y, m+1, 0).getDate();
 }
 
-function visibleTasks() {
-  const q = state.query.trim().toLowerCase();
-
-  return state.tasks
-    .filter((t) => {
-      if (state.filter === "active") return !t.done;
-      if (state.filter === "done") return t.done;
-      return true;
-    })
-    .filter((t) => (q ? t.title.toLowerCase().includes(q) : true))
-    // сначала невыполненные, потом выполненные
-    .sort((a, b) => (a.done === b.done ? b.createdAt - a.createdAt : a.done ? 1 : -1));
+function renderTop(){
+  el.monthTitle.textContent = monthName(view.year, view.month);
 }
 
-function groupTitle(key) {
-  if (key === "today") return "Сегодня";
-  if (key === "tomorrow") return "Завтра";
-  return "Позже";
+function renderGrid(){
+  el.grid.innerHTML = "";
+
+  const y = view.year;
+  const m = view.month;
+
+  const startIdx = firstDayMondayIndex(y, m);
+  const dim = daysInMonth(y, m);
+
+  // предыдущий месяц для "серых" дней
+  const prevMonth = (m + 11) % 12;
+  const prevYear = m === 0 ? y - 1 : y;
+  const dimPrev = daysInMonth(prevYear, prevMonth);
+
+  // всего 6 недель * 7 = 42 клетки (как в календарях)
+  const totalCells = 42;
+
+  const today = new Date();
+  const todayKey = keyOf(today.getFullYear(), today.getMonth(), today.getDate());
+
+  for (let i = 0; i < totalCells; i++){
+    let cellY = y, cellM = m, cellD = 1;
+    let isOther = false;
+
+    if (i < startIdx){
+      // хвост прошлого месяца
+      isOther = true;
+      cellY = prevYear;
+      cellM = prevMonth;
+      cellD = dimPrev - (startIdx - 1 - i);
+    } else if (i >= startIdx + dim){
+      // начало следующего
+      isOther = true;
+      const nextMonth = (m + 1) % 12;
+      const nextYear = m === 11 ? y + 1 : y;
+      cellY = nextYear;
+      cellM = nextMonth;
+      cellD = i - (startIdx + dim) + 1;
+    } else {
+      cellD = i - startIdx + 1;
+    }
+
+    const dayKey = keyOf(cellY, cellM, cellD);
+    const dateObj = new Date(cellY, cellM, cellD);
+
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cell";
+    if (isOther) cell.classList.add("is-other");
+    if (dateObj.getDay() === 0) cell.classList.add("is-sun"); // Sunday
+    if (dayKey === todayKey) cell.classList.add("is-today");
+    if (dayKey === view.selected) cell.classList.add("is-selected");
+
+    cell.setAttribute("data-key", dayKey);
+    cell.setAttribute("aria-label", dayKey);
+
+    const num = document.createElement("div");
+    num.className = "num";
+    num.textContent = String(cellD);
+
+    const dots = document.createElement("div");
+    dots.className = "dots";
+    const c = getCountsForDay(dayKey);
+    if (c.total > 0){
+      // 2 точки: активные и выполненные (как индикаторы)
+      const dotA = document.createElement("div");
+      dotA.className = "dot is-active";
+      const dotD = document.createElement("div");
+      dotD.className = "dot is-done";
+      // если нет одного из типов — делаем его "пустым"
+      if (c.active === 0) dotA.className = "dot";
+      if (c.done === 0) dotD.className = "dot";
+      dots.append(dotA, dotD);
+    }
+
+    cell.append(num);
+    if (c.total > 0) cell.append(dots);
+
+    cell.addEventListener("click", () => {
+      view.selected = dayKey;
+      render();
+    });
+
+    el.grid.append(cell);
+  }
 }
 
-function escapeHtml(str) {
-  return str
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+function renderDayPanel(){
+  const { y, m, d } = parseKey(view.selected);
+  const date = new Date(y, m, d);
 
-function emptyItem(text) {
-  const row = document.createElement("div");
-  row.className = "item";
-  row.style.justifyContent = "center";
-  row.style.padding = "16px 12px";
-  row.innerHTML = `<div style="color: rgba(15,23,42,.62)">${escapeHtml(text)}</div>`;
-  return row;
-}
+  el.dayBig.textContent = String(d);
+  el.daySmall.textContent = weekdayShortRu(date);
 
-function taskNode(task) {
-  const row = document.createElement("div");
-  row.className = `item ${task.done ? "is-done" : ""}`;
+  // список задач
+  const list = db[view.selected] || [];
+  el.list.innerHTML = "";
 
-  const check = document.createElement("button");
-  check.className = `check ${task.done ? "is-done" : ""}`;
-  check.type = "button";
-  check.ariaLabel = task.done ? "Отметить как не выполнено" : "Отметить как выполнено";
-  check.innerHTML = `
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M20 7L10 17l-5-5" stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  `;
-  check.addEventListener("click", () => toggleTask(task.id));
-
-  const main = document.createElement("div");
-  main.className = "item__main";
-  main.innerHTML = `<div class="item__title">${escapeHtml(task.title)}</div>`;
-
-  const del = document.createElement("button");
-  del.className = "iconbtn";
-  del.type = "button";
-  del.ariaLabel = "Удалить задачу";
-  del.textContent = "Удалить";
-  del.addEventListener("click", () => removeTask(task.id));
-
-  row.append(check, main, del);
-  return row;
-}
-
-function groupNode(key, tasks) {
-  const box = document.createElement("section");
-  box.className = "group";
-
-  const head = document.createElement("div");
-  head.className = "group__head";
-
-  const title = document.createElement("div");
-  title.className = "group__title";
-  title.textContent = groupTitle(key);
-
-  const badge = document.createElement("div");
-  badge.className = "badge";
-  badge.textContent = `${tasks.filter(t => !t.done).length} активн. · ${tasks.length} всего`;
-
-  head.append(title, badge);
-
-  const list = document.createElement("div");
-  list.className = "list";
-
-  if (tasks.length === 0) {
-    list.appendChild(emptyItem("Пока пусто в этой секции"));
-  } else {
-    tasks.forEach((t) => list.appendChild(taskNode(t)));
+  if (list.length === 0){
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "Пока ничего нет. Добавь задачу снизу.";
+    el.list.append(empty);
+    return;
   }
 
-  box.append(head, list);
-  return box;
-}
+  // сортировка: активные сверху, выполненные ниже
+  const sorted = [...list].sort((a,b) => (a.done === b.done ? b.createdAt - a.createdAt : a.done ? 1 : -1));
 
-function render() {
-  el.today.textContent = formatToday();
+  for (const item of sorted){
+    const row = document.createElement("div");
+    row.className = "item" + (item.done ? " is-done" : "");
 
-  const s = getStats();
-  el.focusValue.textContent = s.left === 0 ? "Свободно ✨" : `${s.left} задач(и)`;
-  el.stats.innerHTML = `Осталось: <b>${s.left}</b> · Готово: <b>${s.done}</b> · Всего: <b>${s.total}</b>`;
-  el.clearDone.disabled = s.done === 0;
+    const check = document.createElement("button");
+    check.type = "button";
+    check.className = "check" + (item.done ? " is-done" : "");
+    check.ariaLabel = item.done ? "Снять выполнение" : "Отметить выполненным";
+    check.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M20 7L10 17l-5-5" stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
+    check.addEventListener("click", () => toggleTask(view.selected, item.id));
 
-  // группируем по секциям
-  const tasks = visibleTasks();
-  const map = { today: [], tomorrow: [], later: [] };
-  for (const t of tasks) {
-    const sec = t.section || "today";
-    (map[sec] || map.today).push(t);
+    const text = document.createElement("div");
+    text.className = "item__text";
+    text.textContent = item.text;
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "del";
+    del.textContent = "Удалить";
+    del.addEventListener("click", () => deleteTask(view.selected, item.id));
+
+    row.append(check, text, del);
+    el.list.append(row);
   }
-
-  el.groups.innerHTML = "";
-  el.groups.appendChild(groupNode("today", map.today));
-  el.groups.appendChild(groupNode("tomorrow", map.tomorrow));
-  el.groups.appendChild(groupNode("later", map.later));
 }
 
-function bind() {
+function render(){
+  renderTop();
+  renderGrid();
+  renderDayPanel();
+}
+
+function shiftMonth(delta){
+  const d = new Date(view.year, view.month + delta, 1);
+  view.year = d.getFullYear();
+  view.month = d.getMonth();
+
+  // если выбранный день не в этом месяце — оставим выбранным "1 число текущего"
+  view.selected = keyOf(view.year, view.month, 1);
+  render();
+}
+
+function bind(){
+  el.btnPrev.addEventListener("click", () => shiftMonth(-1));
+  el.btnNext.addEventListener("click", () => shiftMonth(+1));
+
   el.addForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    addTask(el.taskInput.value);
+    addTaskForSelected(el.taskInput.value);
     el.taskInput.value = "";
     el.taskInput.focus();
   });
 
-  el.searchInput.addEventListener("input", (e) => setQuery(e.target.value));
-
-  el.filterChips().forEach((btn) => {
-    btn.addEventListener("click", () => setFilter(btn.dataset.filter));
-  });
-
-  el.sectionBtns().forEach((btn) => {
-    btn.addEventListener("click", () => setSectionPick(btn.dataset.section));
-  });
-
-  el.clearDone.addEventListener("click", clearDone);
-
-  // shortcuts
-  window.addEventListener("keydown", (e) => {
-    const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
-    if (!isInput && e.key === "/") {
-      e.preventDefault();
-      el.taskInput.focus();
-    }
-    const k = e.key.toLowerCase();
-    if ((e.ctrlKey || e.metaKey) && k === "k") {
-      e.preventDefault();
-      el.taskInput.focus();
-    }
-  });
+  el.clearDone.addEventListener("click", clearDoneForSelected);
+  el.clearDay.addEventListener("click", clearDay);
 }
 
-function init() {
+function init(){
   load();
+
+  const now = new Date();
+  view.year = now.getFullYear();
+  view.month = now.getMonth();
+  view.selected = keyOf(now.getFullYear(), now.getMonth(), now.getDate());
+
   bind();
-  setFilter("all");
-  setSectionPick("today");
   render();
 }
 
