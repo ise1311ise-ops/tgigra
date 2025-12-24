@@ -235,18 +235,21 @@ body{
   object-fit:contain;
 }
 
-/* ✅ стрелка МЕНЬШЕ и ровная как у тебя на скрине */
+/* ✅ ВАЖНО: стрелка как на твоём скрине */
 .compass-arrow{
   position:absolute;
-  width:54%;
-  height:54%;
+  width:46%;
+  height:46%;
   object-fit:contain;
 
   left:50%;
   top:50%;
 
-  transform-origin: 42% 74%;
-  transform: translate(-50%, -50%) rotate(0deg);
+  /* точка вращения на "перемычке" */
+  transform-origin: 50% 66%;
+
+  /* чуть выше центра */
+  transform: translate(-50%, -54%) rotate(0deg);
 
   filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
   transition: transform 70ms linear;
