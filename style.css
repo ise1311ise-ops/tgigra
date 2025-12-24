@@ -6,7 +6,6 @@
   --text: rgba(255,255,255,0.92);
   --muted: rgba(255,255,255,0.55);
   --muted2: rgba(255,255,255,0.38);
-  --accent: rgba(120, 220, 255, 0.95);
   --shadow: rgba(0,0,0,0.35);
   --radius2: 22px;
 }
@@ -36,7 +35,6 @@ body{
   content:"";
   position:absolute;
   inset:0;
-  /* ВАЖНО: bg_main.png лежит в корне репо */
   background-image: url("./bg_main.png");
   background-size: cover;
   background-position: center;
@@ -100,7 +98,6 @@ body{
   max-width: 520px;
   margin: 0 auto;
 }
-
 .glass{
   background: var(--glass);
   border: 1px solid var(--stroke);
@@ -298,7 +295,6 @@ body{
   padding-top: 10px;
 }
 
-/* ✅ фикс компаса/стрелки */
 .compass{
   width: 300px;
   height: 300px;
@@ -314,15 +310,30 @@ body{
   object-fit: contain;
   transform: translateZ(0);
 }
+
+/* ✅ ГЛАВНЫЙ ФИКС СТРЕЛКИ: центр + точка вращения */
 .compass-arrow{
   position:absolute;
-  width: 74%;
-  height: 74%;
+
+  /* как в оригинале — меньше */
+  width: 62%;
+  height: 62%;
   object-fit: contain;
-  transform-origin: 50% 50%;
-  transform: rotate(0deg) translateZ(0);
+
+  /* центрируем по контейнеру */
+  left: 50%;
+  top: 50%;
+
+  /* точка вращения смещена к основанию стрелки */
+  transform-origin: 38% 52%;
+
+  /* важно: translate + rotate (rotate добавляется из JS) */
+  transform: translate(-50%, -50%) rotate(0deg);
+
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,0.35));
   transition: transform 70ms linear;
 }
+
 .compass-glow{
   position:absolute;
   inset: 10px;
