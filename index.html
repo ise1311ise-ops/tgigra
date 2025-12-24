@@ -1,239 +1,60 @@
 <!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Время молитв</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Glass Planner</title>
+    <meta name="theme-color" content="#f4f7ff" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
 
-  <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#06101e">
-
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="app">
-    <div class="bg">
-      <img class="bg-img" src="bg_main.png" alt="">
-      <div class="bg-vignette"></div>
-    </div>
-
-    <!-- TOP BAR -->
-    <header class="topbar">
-      <button class="iconbtn" id="btnMenu" aria-label="Меню">
-        <span class="ico ico-menu"></span>
-      </button>
-
-      <div class="top-title">
-        <div class="top-title-text" id="topTitle">Время молитв</div>
-      </div>
-
-      <button class="iconbtn" id="btnSettings" aria-label="Настройки">
-        <span class="ico ico-gear"></span>
-      </button>
-    </header>
-
-    <!-- CONTENT -->
-    <main class="content">
-
-      <!-- SCREEN: PRAYERS -->
-      <section class="screen active" id="screenPrayers">
-        <div class="glass hero">
-          <button class="iconbtn small hero-gear" id="btnHeroGear" aria-label="Настройки">
-            <span class="ico ico-gear"></span>
-          </button>
-
-          <div class="hero-mid">
-            <div class="hero-sub">До следующей молитвы</div>
-            <div class="hero-time" id="countdown">--:--:--</div>
-          </div>
-
-          <div class="hero-right">
-            <div class="hero-next">до <span id="nextPrayerName">—</span></div>
-          </div>
+  <body>
+    <main class="wrap">
+      <header class="card header">
+        <div class="header__left">
+          <h1 class="title">Планер</h1>
+          <div class="subtitle" id="today"></div>
         </div>
 
-        <div class="section-label">Метод расчёта времени молитв</div>
+        <div class="pill">
+          <div class="pill__label">Фокус</div>
+          <div class="pill__value" id="focusValue">—</div>
+        </div>
+      </header>
 
-        <div class="chips" id="chips">
-          <button class="chip" data-method="ISNA">ISNA</button>
-          <button class="chip" data-method="MWL">MWL</button>
-          <button class="chip active" data-method="Umm al-Qura">Umm al-Qura</button>
-          <button class="chip" data-method="Egypt">Egypt</button>
-          <button class="chip" data-method="Moonsighting">Moonsighting</button>
+      <section class="card panel">
+        <form id="addForm" class="row" autocomplete="off">
+          <input
+            id="taskInput"
+            class="input"
+            type="text"
+            placeholder='Добавить задачу… (Enter). Фокус: "/" или Ctrl/⌘K'
+            maxlength="140"
+          />
+          <button class="btn" type="submit" aria-label="Добавить задачу">Добавить</button>
+        </form>
+
+        <div class="row row--tight">
+          <button class="chip chip--active" data-filter="all" type="button">Все</button>
+          <button class="chip" data-filter="active" type="button">Активные</button>
+          <button class="chip" data-filter="done" type="button">Готово</button>
         </div>
 
-        <div class="list" id="prayerList"></div>
-
-        <div class="glass hintbox">
-          <div class="hintline">
-            <span class="dot-mini"></span>
-            <div class="hinttext">
-              Для точных времён нажми <b>Определить локацию</b>.
-            </div>
-          </div>
-
-          <div class="btnrow">
-            <button class="btn" id="btnGeo">Определить локацию</button>
-            <button class="btn ghost" id="btnRefresh">Обновить времена</button>
-          </div>
+        <div class="row">
+          <input id="searchInput" class="input" type="text" placeholder="Поиск по задачам…" maxlength="140" />
         </div>
+
+        <div id="list" class="list" role="list"></div>
+
+        <footer class="footer">
+          <div class="stats" id="stats">—</div>
+          <button class="btn btn--ghost" id="clearDone" type="button" disabled>Очистить выполненные</button>
+        </footer>
       </section>
 
-      <!-- SCREEN: QIBLA -->
-      <section class="screen" id="screenQibla">
-        <div class="q-title">Кибла</div>
-        <div class="q-sub" id="qCity">📍 —</div>
-
-        <div class="q-stage">
-          <div class="q-compass">
-            <img class="q-compass-img" src="kompas.png" alt="Компас">
-            <img class="q-arrow" id="qArrow" src="strelka.png" alt="Стрелка">
-          </div>
-        </div>
-
-        <div class="glass q-panel">
-          <div class="q-row">
-            <div class="k">Направление на Киблу</div>
-            <div class="v"><span id="qBearing">—</span>°</div>
-          </div>
-          <div class="q-row">
-            <div class="k">Поворот устройства</div>
-            <div class="v"><span id="qHeading">—</span>°</div>
-          </div>
-
-          <div class="divider"></div>
-
-          <div class="q-note" id="qNote">
-            Нажми “Датчики”, чтобы стрелка работала как компас. Если датчики недоступны — используй ползунок.
-          </div>
-
-          <div class="slider">
-            <input id="headingSlider" type="range" min="0" max="359" value="0">
-            <div class="slider-ends"><span>0°</span><span>359°</span></div>
-          </div>
-
-          <div class="btnrow">
-            <button class="btn" id="btnSensors">Датчики</button>
-            <button class="btn ghost" id="btnGeo2">Локация</button>
-          </div>
-        </div>
-      </section>
-
+      <div class="hint">Enter — добавить · / или Ctrl/⌘K — фокус на вводе</div>
     </main>
 
-    <!-- BOTTOM TABS -->
-    <nav class="tabs">
-      <button class="tab active" id="tabPrayers">Время молитв</button>
-      <button class="tab" id="tabQibla">Кибла</button>
-    </nav>
-
-    <!-- MENU MODAL -->
-    <div class="modal" id="menuModal" aria-hidden="true">
-      <div class="backdrop" data-close="menuModal"></div>
-      <div class="sheet">
-        <div class="sheet-title">Меню</div>
-
-        <button class="sheet-item" id="mFeedback">✉️ Обратная связь</button>
-        <button class="sheet-item" id="mRate">⭐ Оценить нас</button>
-        <button class="sheet-item" id="mShare">📤 Поделиться</button>
-        <button class="sheet-item" id="mPrivacy">📜 Политика конфиденциальности</button>
-
-        <div class="sheet-actions">
-          <button class="btn ghost" data-close="menuModal">Закрыть</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- SETTINGS MODAL -->
-    <div class="modal" id="settingsModal" aria-hidden="true">
-      <div class="backdrop" data-close="settingsModal"></div>
-      <div class="sheet">
-        <div class="sheet-title">Настройки</div>
-
-        <button class="sheet-item withsub" id="sNotif">
-          <div>
-            <div class="main">Уведомления до молитвы</div>
-            <div class="sub" id="sNotifVal">За 10 мин</div>
-          </div>
-          <div class="chev">›</div>
-        </button>
-
-        <button class="sheet-item withsub" id="sMode">
-          <div>
-            <div class="main">Режим уведомлений</div>
-            <div class="sub" id="sModeVal">Звук</div>
-          </div>
-          <div class="chev">›</div>
-        </button>
-
-        <button class="sheet-item withsub" id="sSound">
-          <div>
-            <div class="main">Звук уведомления</div>
-            <div class="sub" id="sSoundVal">Alien</div>
-          </div>
-          <div class="chev">›</div>
-        </button>
-
-        <button class="sheet-item withsub" id="sPerm">
-          <div>
-            <div class="main">Разрешение на уведомления</div>
-            <div class="sub" id="sPermVal">Не запрошено</div>
-          </div>
-          <div class="chev">›</div>
-        </button>
-
-        <div class="sheet-actions">
-          <button class="btn ghost" data-close="settingsModal">Закрыть</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- OFFSET MODAL -->
-    <div class="modal" id="offsetModal" aria-hidden="true">
-      <div class="backdrop" data-close="offsetModal"></div>
-      <div class="sheet">
-        <div class="sheet-title">Настроить время</div>
-
-        <div class="offset-name" id="offName">—</div>
-        <div class="offset-row">
-          <div class="k">Смещение:</div>
-          <div class="v"><span id="offVal">0</span> мин</div>
-        </div>
-        <div class="offset-final">
-          Итоговое время: <span id="offFinal">--:--</span>
-        </div>
-
-        <div class="btnrow">
-          <button class="btn ghost" id="offMinus">-5 мин</button>
-          <button class="btn" id="offPlus">+5 мин</button>
-        </div>
-
-        <div class="btnrow">
-          <button class="btn ghost" id="offReset">Сбросить</button>
-          <button class="btn ghost" data-close="offsetModal">Закрыть</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- PICKER MODAL -->
-    <div class="modal" id="pickerModal" aria-hidden="true">
-      <div class="backdrop" data-close="pickerModal"></div>
-      <div class="sheet">
-        <div class="sheet-title" id="pickerTitle">Выбор</div>
-        <div class="picker" id="pickerList"></div>
-        <div class="sheet-actions">
-          <button class="btn ghost" data-close="pickerModal">Закрыть</button>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <script src="game.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js").catch(()=>{});
-    }
-  </script>
-</body>
+    <script src="app.js" defer></script>
+  </body>
 </html>
