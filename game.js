@@ -4,10 +4,6 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const state = {
   city: "Сергиев Посад",
   method: "Umm al-Qura",
-  notifyBeforeMin: 10,
-  notifyMode: "Звук",
-  notifySound: "Alien",
-  language: "System default",
 
   prayers: [
     { key: "fajr",   name: "Fajr",   ar: "الفجر",   time: "06:33" },
@@ -17,35 +13,11 @@ const state = {
     { key: "isha",   name: "Isha",   ar: "العشاء",  time: "17:24" },
   ],
 
-  qiblaAzimuth: 160,   // пока фикс
+  qiblaAzimuth: 160,
   heading: null,
+
   arrowAngle: 0,
 };
-
-function saveSettings() {
-  localStorage.setItem("miniapp_prayer_state", JSON.stringify({
-    city: state.city,
-    method: state.method,
-    notifyBeforeMin: state.notifyBeforeMin,
-    notifyMode: state.notifyMode,
-    notifySound: state.notifySound,
-    language: state.language,
-    qiblaAzimuth: state.qiblaAzimuth,
-  }));
-}
-
-function loadSettings() {
-  try {
-    const raw = localStorage.getItem("miniapp_prayer_state");
-    if (!raw) return;
-    Object.assign(state, JSON.parse(raw));
-  } catch {}
-}
-
-function renderHeaderFor(screen) {
-  $("#screenTitle").textContent = (screen === "prayers") ? "Время молитв" : "Кибла";
-  $("#cityName").textContent = state.city;
-}
 
 function renderMethodChips() {
   $$("#methodChips .chip").forEach(btn => {
@@ -53,14 +25,6 @@ function renderMethodChips() {
   });
 }
 
-function renderSettingsLabels() {
-  $("#notifyBeforeLabel").textContent = `За ${state.notifyBeforeMin} мин`;
-  $("#notifyModeLabel").textContent = state.notifyMode;
-  $("#notifySoundLabel").textContent = state.notifySound;
-  $("#langLabel").textContent = state.language;
-}
-
-/* ===== Prayer logic (demo) ===== */
 function parseTodayTimeHHMM(hhmm) {
   const [hh, mm] = hhmm.split(":").map(Number);
   const d = new Date();
@@ -91,14 +55,13 @@ function formatHHMMSS(ms) {
 function renderPrayerList(activeKey) {
   const list = $("#prayerList");
   list.innerHTML = "";
-
   state.prayers.forEach(p => {
     const item = document.createElement("div");
     item.className = "prayer-item" + (p.key === activeKey ? " active" : "");
     item.innerHTML = `
       <div class="prayer-left">
         <div class="dot"></div>
-        <div class="prayer-names">
+        <div>
           <div class="prayer-name">${p.name}</div>
           <div class="prayer-ar">${p.ar}</div>
         </div>
@@ -108,7 +71,6 @@ function renderPrayerList(activeKey) {
         <button class="small-gear" aria-label="Настройки">⚙</button>
       </div>
     `;
-    item.querySelector(".small-gear").addEventListener("click", openSettings);
     list.appendChild(item);
   });
 }
@@ -120,31 +82,22 @@ function tickCountdown() {
   renderPrayerList(next.prayer.key);
 }
 
-/* ===== Screens ===== */
 function showScreen(name) {
   $("#screenPrayers").classList.toggle("hidden", name !== "prayers");
   $("#screenQibla").classList.toggle("hidden", name !== "qibla");
   $("#tabPrayers").classList.toggle("active", name === "prayers");
   $("#tabQibla").classList.toggle("active", name === "qibla");
-  renderHeaderFor(name);
+  $("#screenTitle").textContent = (name === "prayers") ? "Время молитв" : "Кибла";
+  $("#cityName").textContent = state.city;
 }
 
-/* ===== Modals ===== */
-function openMenu() { $("#menuModal").classList.remove("hidden"); }
-function closeMenu() { $("#menuModal").classList.add("hidden"); }
-
-function openSettings() {
-  renderSettingsLabels();
-  $("#settingsModal").classList.remove("hidden");
-}
-function closeSettings() { $("#settingsModal").classList.add("hidden"); }
-
-/* ===== Compass / Qibla ===== */
+/* ===== Compass ===== */
 function normalizeDeg(a) {
   let x = a % 360;
   if (x < 0) x += 360;
   return x;
 }
+
 function shortestAngleDelta(from, to) {
   let d = normalizeDeg(to) - normalizeDeg(from);
   if (d > 180) d -= 360;
@@ -155,16 +108,18 @@ function shortestAngleDelta(from, to) {
 function updateCompassArrow(targetAngle) {
   const current = state.arrowAngle;
   const delta = shortestAngleDelta(current, targetAngle);
+
+  // плавно догоняем
   state.arrowAngle = normalizeDeg(current + delta * 0.18);
 
-  // ✅ важно: оставляем translate(-50%, -50%) и меняем только rotate
+  // ✅ ВАЖНО: translate должен быть -54% (как в CSS), иначе всё ломается
   $("#arrow").style.transform =
-    `translate(-50%, -50%) rotate(${state.arrowAngle}deg)`;
+    `translate(-50%, -54%) rotate(${state.arrowAngle}deg)`;
 }
 
 function renderQiblaLabels(heading) {
   $("#qiblaAzimuth").textContent = Math.round(state.qiblaAzimuth);
-  $("#heading").textContent = (heading == null) ? "—" : Math.round(heading);
+  $("#heading").textContent = Math.round(heading);
 }
 
 function recomputeArrow() {
@@ -200,77 +155,28 @@ function setupDeviceOrientation() {
     } catch {}
   }
 
-  // датчик включаем по первому клику (нужно для iOS и некоторых WebView)
   document.addEventListener("click", () => tryEnable(), { once: true });
 }
 
-/* ===== UI wiring ===== */
 function wireUI() {
   $("#tabPrayers").addEventListener("click", () => showScreen("prayers"));
   $("#tabQibla").addEventListener("click", () => showScreen("qibla"));
 
-  $("#btnMore").addEventListener("click", openMenu);
+  $("#btnMore").addEventListener("click", () => $("#menuModal").classList.remove("hidden"));
+  $("#btnCloseMenu").addEventListener("click", () => $("#menuModal").classList.add("hidden"));
+  $$("#menuModal [data-close='menu']").forEach(el => el.addEventListener("click", () => $("#menuModal").classList.add("hidden")));
+
   $("#btnBack").addEventListener("click", () => showScreen("prayers"));
-
-  $("#btnSearch").addEventListener("click", () => alert("Поиск/выбор города — добавим позже"));
-
-  $("#btnCloseMenu").addEventListener("click", closeMenu);
-  $$("#menuModal [data-close='menu']").forEach(el => el.addEventListener("click", closeMenu));
-
-  $("#btnFeedback").addEventListener("click", () => alert("Обратная связь — добавим форму/чат"));
-  $("#btnRate").addEventListener("click", () => alert("Оценить — добавим ссылку"));
-  $("#btnShare").addEventListener("click", () => {
-    navigator.clipboard?.writeText(location.href).catch(()=>{});
-    alert("Ссылка скопирована");
-  });
-  $("#btnPrivacy").addEventListener("click", () => alert("Политика — откроем страницу"));
-
-  $("#btnCloseSettings").addEventListener("click", () => { saveSettings(); closeSettings(); });
-  $$("#settingsModal [data-close='settings']").forEach(el =>
-    el.addEventListener("click", () => { saveSettings(); closeSettings(); })
-  );
-
-  $("#btnNotifyBefore").addEventListener("click", () => {
-    const options = [5, 10, 15, 20, 30];
-    const i = options.indexOf(state.notifyBeforeMin);
-    state.notifyBeforeMin = options[(i + 1) % options.length];
-    renderSettingsLabels();
-  });
-
-  $("#btnNotifyMode").addEventListener("click", () => {
-    const options = ["Звук", "Без звука", "Вибрация"];
-    const i = options.indexOf(state.notifyMode);
-    state.notifyMode = options[(i + 1) % options.length];
-    renderSettingsLabels();
-  });
-
-  $("#btnNotifySound").addEventListener("click", () => {
-    const options = ["Alien", "Classic", "Soft", "Beep"];
-    const i = options.indexOf(state.notifySound);
-    state.notifySound = options[(i + 1) % options.length];
-    renderSettingsLabels();
-  });
-
-  $("#btnLanguage").addEventListener("click", () => {
-    const options = ["System default", "Русский", "English", "العربية"];
-    const i = options.indexOf(state.language);
-    state.language = options[(i + 1) % options.length];
-    renderSettingsLabels();
-  });
 
   $$("#methodChips .chip").forEach(btn => {
     btn.addEventListener("click", () => {
       state.method = btn.dataset.method;
       renderMethodChips();
-      saveSettings();
     });
   });
 }
 
-/* ===== Boot ===== */
 function boot() {
-  loadSettings();
-
   renderMethodChips();
   tickCountdown();
   setInterval(tickCountdown, 1000);
