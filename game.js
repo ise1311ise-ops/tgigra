@@ -17,7 +17,7 @@ const state = {
     { key: "isha",   name: "Isha",   ar: "العشاء",  time: "17:24" },
   ],
 
-  qiblaAzimuth: 160,     // пока фикс (потом можно считать по геолокации)
+  qiblaAzimuth: 160,   // пока фикс
   heading: null,
   arrowAngle: 0,
 };
@@ -43,8 +43,7 @@ function loadSettings() {
 }
 
 function renderHeaderFor(screen) {
-  const title = $("#screenTitle");
-  title.textContent = (screen === "prayers") ? "Время молитв" : "Кибла";
+  $("#screenTitle").textContent = (screen === "prayers") ? "Время молитв" : "Кибла";
   $("#cityName").textContent = state.city;
 }
 
@@ -61,6 +60,7 @@ function renderSettingsLabels() {
   $("#langLabel").textContent = state.language;
 }
 
+/* ===== Prayer logic (demo) ===== */
 function parseTodayTimeHHMM(hhmm) {
   const [hh, mm] = hhmm.split(":").map(Number);
   const d = new Date();
@@ -91,6 +91,7 @@ function formatHHMMSS(ms) {
 function renderPrayerList(activeKey) {
   const list = $("#prayerList");
   list.innerHTML = "";
+
   state.prayers.forEach(p => {
     const item = document.createElement("div");
     item.className = "prayer-item" + (p.key === activeKey ? " active" : "");
@@ -119,6 +120,7 @@ function tickCountdown() {
   renderPrayerList(next.prayer.key);
 }
 
+/* ===== Screens ===== */
 function showScreen(name) {
   $("#screenPrayers").classList.toggle("hidden", name !== "prayers");
   $("#screenQibla").classList.toggle("hidden", name !== "qibla");
@@ -130,6 +132,7 @@ function showScreen(name) {
 /* ===== Modals ===== */
 function openMenu() { $("#menuModal").classList.remove("hidden"); }
 function closeMenu() { $("#menuModal").classList.add("hidden"); }
+
 function openSettings() {
   renderSettingsLabels();
   $("#settingsModal").classList.remove("hidden");
@@ -148,19 +151,27 @@ function shortestAngleDelta(from, to) {
   if (d < -180) d += 360;
   return d;
 }
+
 function updateCompassArrow(targetAngle) {
   const current = state.arrowAngle;
   const delta = shortestAngleDelta(current, targetAngle);
   state.arrowAngle = normalizeDeg(current + delta * 0.18);
-  $("#arrow").style.transform = `rotate(${state.arrowAngle}deg) translateZ(0)`;
+
+  // ✅ важно: оставляем translate(-50%, -50%) и меняем только rotate
+  $("#arrow").style.transform =
+    `translate(-50%, -50%) rotate(${state.arrowAngle}deg)`;
 }
+
 function renderQiblaLabels(heading) {
   $("#qiblaAzimuth").textContent = Math.round(state.qiblaAzimuth);
   $("#heading").textContent = (heading == null) ? "—" : Math.round(heading);
 }
 
 function recomputeArrow() {
-  const heading = (state.heading == null) ? Number($("#demoHeading").value) : state.heading;
+  const heading = (state.heading == null)
+    ? Number($("#demoHeading").value)
+    : state.heading;
+
   const target = normalizeDeg(state.qiblaAzimuth - heading);
   updateCompassArrow(target);
   renderQiblaLabels(heading);
@@ -189,6 +200,7 @@ function setupDeviceOrientation() {
     } catch {}
   }
 
+  // датчик включаем по первому клику (нужно для iOS и некоторых WebView)
   document.addEventListener("click", () => tryEnable(), { once: true });
 }
 
@@ -214,7 +226,9 @@ function wireUI() {
   $("#btnPrivacy").addEventListener("click", () => alert("Политика — откроем страницу"));
 
   $("#btnCloseSettings").addEventListener("click", () => { saveSettings(); closeSettings(); });
-  $$("#settingsModal [data-close='settings']").forEach(el => el.addEventListener("click", () => { saveSettings(); closeSettings(); }));
+  $$("#settingsModal [data-close='settings']").forEach(el =>
+    el.addEventListener("click", () => { saveSettings(); closeSettings(); })
+  );
 
   $("#btnNotifyBefore").addEventListener("click", () => {
     const options = [5, 10, 15, 20, 30];
@@ -222,18 +236,21 @@ function wireUI() {
     state.notifyBeforeMin = options[(i + 1) % options.length];
     renderSettingsLabels();
   });
+
   $("#btnNotifyMode").addEventListener("click", () => {
     const options = ["Звук", "Без звука", "Вибрация"];
     const i = options.indexOf(state.notifyMode);
     state.notifyMode = options[(i + 1) % options.length];
     renderSettingsLabels();
   });
+
   $("#btnNotifySound").addEventListener("click", () => {
     const options = ["Alien", "Classic", "Soft", "Beep"];
     const i = options.indexOf(state.notifySound);
     state.notifySound = options[(i + 1) % options.length];
     renderSettingsLabels();
   });
+
   $("#btnLanguage").addEventListener("click", () => {
     const options = ["System default", "Русский", "English", "العربية"];
     const i = options.indexOf(state.language);
