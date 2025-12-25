@@ -1,69 +1,42 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Glass Calendar Planner</title>
-  <meta name="theme-color" content="#0b0f18" />
+  <title>Поиск Киблы</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
-
 <body>
-  <main class="app">
-    <!-- Top bar -->
-    <header class="topbar">
-      <button class="iconbtn" id="btnPrev" aria-label="Предыдущий месяц">
-        <span class="chev">‹</span>
-      </button>
+  <div id="app">
 
-      <div class="topbar__center">
-        <div class="month" id="monthTitle">—</div>
-      </div>
-
-      <button class="iconbtn" id="btnNext" aria-label="Следующий месяц">
-        <span class="chev">›</span>
-      </button>
-    </header>
-
-    <!-- Calendar -->
-    <section class="card calendar">
-      <div class="dow">
-        <div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div class="sun">ВС</div>
-      </div>
-      <div class="grid" id="grid" aria-label="Календарь месяца"></div>
+    <!-- Экран 1 -->
+    <section id="start" class="screen active">
+      <h1>Поиск Киблы</h1>
+      <button id="startBtn">Найти Киблу</button>
     </section>
 
-    <!-- Day panel -->
-    <section class="card day">
-      <div class="day__head">
-        <div class="day__big" id="dayBig">—</div>
-        <div class="day__small" id="daySmall">—</div>
+    <!-- Экран 2 -->
+    <section id="compass" class="screen">
+      <h2>Направление к Кибле</h2>
+      <div id="compassCircle">
+        <div id="arrow"></div>
+        <div id="degree">—°</div>
       </div>
-
-      <div class="list" id="list"></div>
-
-      <div class="composer">
-        <form id="addForm" class="composer__form" autocomplete="off">
-          <input
-            id="taskInput"
-            class="input"
-            type="text"
-            placeholder="Добавь событие / задачу… (Enter)"
-            maxlength="160"
-          />
-          <button class="fab" type="submit" aria-label="Добавить">+</button>
-        </form>
-
-        <div class="composer__actions">
-          <button class="ghost" id="clearDay" type="button">Очистить день</button>
-          <button class="ghost" id="clearDone" type="button">Очистить выполненные</button>
-        </div>
-      </div>
+      <button id="mapBtn">Показать на карте</button>
     </section>
 
-    <div class="hint">Тап по дате → дела для этого дня · Enter — добавить</div>
-  </main>
+    <!-- Экран 3 -->
+    <section id="map" class="screen">
+      <h2>Кибла на карте</h2>
+      <div class="mapBox">
+        Карта будет здесь
+      </div>
+      <div id="distance">— км</div>
+    </section>
 
-  <script src="app.js" defer></script>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
