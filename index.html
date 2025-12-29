@@ -1,42 +1,163 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Поиск Киблы</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Вдрова — заказ</title>
+  <link rel="stylesheet" href="./style.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-  <div id="app">
-
-    <!-- Экран 1 -->
-    <section id="start" class="screen active">
-      <h1>Поиск Киблы</h1>
-      <button id="startBtn">Найти Киблу</button>
-    </section>
-
-    <!-- Экран 2 -->
-    <section id="compass" class="screen">
-      <h2>Направление к Кибле</h2>
-      <div id="compassCircle">
-        <div id="arrow"></div>
-        <div id="degree">—°</div>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">В</div>
+        <div class="brandText">
+          <div class="name">Вдрова</div>
+          <div class="tag">Пиво • Рыба • Закуски</div>
+        </div>
       </div>
-      <button id="mapBtn">Показать на карте</button>
-    </section>
 
-    <!-- Экран 3 -->
-    <section id="map" class="screen">
-      <h2>Кибла на карте</h2>
-      <div class="mapBox">
-        Карта будет здесь
+      <div class="headerActions">
+        <button id="btnOpenCart" class="iconBtn" type="button" title="Корзина">
+          <span class="icon">🛒</span>
+          <span id="cartBadge" class="badge">0</span>
+        </button>
       </div>
-      <div id="distance">— км</div>
-    </section>
+    </header>
 
+    <main class="content">
+      <!-- Блок статуса -->
+      <section class="card neon">
+        <div class="row between">
+          <div>
+            <div class="h">Заказ в Telegram</div>
+            <div class="muted" id="helloLine">Открыто в мини-приложении</div>
+          </div>
+          <div class="pill" id="deliveryPill">Доставка</div>
+        </div>
+
+        <div class="switchRow">
+          <button id="modeDelivery" class="seg active" type="button">Доставка</button>
+          <button id="modePickup" class="seg" type="button">Самовывоз</button>
+        </div>
+
+        <div id="deliveryBlock" class="formGrid">
+          <label class="field">
+            <span class="label">Адрес доставки</span>
+            <input id="addressInput" class="input" placeholder="Улица, дом, подъезд, этаж, кв." />
+          </label>
+
+          <label class="field">
+            <span class="label">Город / район</span>
+            <select id="areaSelect" class="input">
+              <option value="По умолчанию">По умолчанию</option>
+              <option value="Центр">Центр</option>
+              <option value="Север">Север</option>
+              <option value="Юг">Юг</option>
+              <option value="Восток">Восток</option>
+              <option value="Запад">Запад</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="pickupBlock" class="formGrid hidden">
+          <label class="field">
+            <span class="label">Точка самовывоза</span>
+            <select id="pickupSelect" class="input">
+              <option value="Вдрова — Главная точка">Вдрова — Главная точка</option>
+              <option value="Вдрова — ТЦ (пример)">Вдрова — ТЦ (пример)</option>
+            </select>
+          </label>
+          <div class="hint">
+            Самовывоз: оплатите/уточните детали в чате после отправки заказа.
+          </div>
+        </div>
+
+        <div class="formGrid">
+          <label class="field">
+            <span class="label">Комментарий</span>
+            <input id="commentInput" class="input" placeholder="Например: домофон 12, без сдачи" />
+          </label>
+
+          <label class="field">
+            <span class="label">Способ оплаты</span>
+            <select id="paySelect" class="input">
+              <option value="Картой">Картой</option>
+              <option value="Наличными">Наличными</option>
+              <option value="Переводом">Переводом</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="check">
+          <input id="ageCheck" type="checkbox" />
+          <span>Мне есть 18 лет</span>
+        </label>
+
+        <div class="muted small">
+          Нажимая «Отправить заказ», вы передаёте состав заказа в чат боту.
+        </div>
+      </section>
+
+      <!-- Каталог -->
+      <section class="card">
+        <div class="row between">
+          <div class="h">Каталог</div>
+          <div class="searchWrap">
+            <input id="searchInput" class="input search" placeholder="Поиск: IPA, вобла, сухарики..." />
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="beer" type="button">🍺 Пиво</button>
+          <button class="tab" data-tab="fish" type="button">🐟 Рыба</button>
+          <button class="tab" data-tab="snack" type="button">🥨 Закуски</button>
+        </div>
+
+        <div id="productGrid" class="grid"></div>
+      </section>
+
+      <!-- Быстрые действия -->
+      <section class="card">
+        <div class="row between">
+          <div class="h">Быстро</div>
+          <div class="muted small">Сформируй корзину и отправь</div>
+        </div>
+
+        <div class="quick">
+          <button id="btnClear" class="btn ghost" type="button">Очистить корзину</button>
+          <button id="btnSend" class="btn primary" type="button">Отправить заказ</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Drawer корзины -->
+    <div id="cartDrawer" class="drawer hidden">
+      <div class="drawerOverlay" id="drawerOverlay"></div>
+      <div class="drawerPanel">
+        <div class="drawerHeader">
+          <div class="h">Корзина</div>
+          <button id="btnCloseCart" class="iconBtn" type="button">✕</button>
+        </div>
+
+        <div id="cartList" class="cartList"></div>
+
+        <div class="drawerFooter">
+          <div class="totalRow">
+            <div class="muted">Итого</div>
+            <div id="cartTotal" class="total">0 ₽</div>
+          </div>
+          <button id="btnSend2" class="btn primary wide" type="button">Отправить заказ</button>
+          <div class="muted small">Если у тебя отключена MainButton — используй эту кнопку.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Тост -->
+    <div id="toast" class="toast hidden"></div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
